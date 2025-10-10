@@ -1,4 +1,4 @@
-﻿#include <dpp/dpp.h>
+#include <dpp/dpp.h>
 #include <dpp/nlohmann/json.hpp>
 #include <fstream>
 #include <string>
@@ -9,16 +9,14 @@
 #include <ctime>
 #include <algorithm>
 #include <iomanip>
+#include "tabela.h"
 
 using json = nlohmann::json;
 
-// --- ATENÇÃO: Lembre-se de resetar seu token e guardá-lo de forma segura ---
 const std::string BOT_TOKEN = "OTQ3MTk2MzkzNjgzMDM0MTY0.G3gyvE.rDp0LWfaHj7MAQ3vTsQ5yfAiJ6At5qyau6DsRY";
 const dpp::snowflake SEU_SERVER_ID = 907527594096853002;
 
 const std::string DATABASE_FILE = "database.json";
-const std::string SCRIPT_LEADS_URL = "https://script.google.com/macros/s/AKfycbwlk3cHYD8ls2WmjVDO5WLMOvmgV_ijDrjtSci1OdZL4KcZK5yTTYDLurlb9TjaTsZB/exec";
-const std::string SCRIPT_SECRET = "#Logan23";
 
 const dpp::snowflake CANAL_VISITAS = 12345;
 const dpp::snowflake CANAL_AVISO_DEMANDAS = 12345;
@@ -41,6 +39,8 @@ struct Solicitacao {
 };
 std::map<uint64_t, Solicitacao> banco_de_dados;
 
+std::string quick_cast(const char8_t* str) { return reinterpret_cast<const char*>(str); }
+
 void to_json(json& j, const Solicitacao& s) { j = json{ {"id", s.id}, {"id_usuario_responsavel", s.id_usuario_responsavel}, {"texto", s.texto}, {"prazo", s.prazo}, {"nome_usuario_responsavel", s.nome_usuario_responsavel}, {"is_pedido", s.is_pedido} }; }
 void from_json(const json& j, Solicitacao& s) { j.at("id").get_to(s.id); j.at("id_usuario_responsavel").get_to(s.id_usuario_responsavel); j.at("texto").get_to(s.texto); j.at("prazo").get_to(s.prazo); j.at("nome_usuario_responsavel").get_to(s.nome_usuario_responsavel); if (j.contains("is_pedido")) { j.at("is_pedido").get_to(s.is_pedido); } else { s.is_pedido = false; } }
 
@@ -59,7 +59,7 @@ void enviar_lembretes(dpp::cluster& bot) {
     }
     for (auto const& [id_usuario, lista_demandas] : solicitacoes_por_usuario) {
         if (!lista_demandas.empty()) {
-            std::string conteudo_dm = u8"Olá! 👋 Este é um lembrete das suas demandas ativas:\n\n";
+            std::string conteudo_dm = quick_cast(u8"Olá! 👋 Este é um lembrete das suas demandas ativas:\n\n");
             for (const auto& demanda : lista_demandas) {
                 conteudo_dm += "**Código:** `" + std::to_string(demanda.id) + "`\n";
                 conteudo_dm += "**Demanda:** " + demanda.texto + "\n";
@@ -101,10 +101,10 @@ int main() {
             std::string horario = std::get<std::string>(event.get_parameter("horario"));
             std::string unidade = std::get<std::string>(event.get_parameter("unidade"));
             std::string telefone = std::get<std::string>(event.get_parameter("telefone"));
-            dpp::embed embed = dpp::embed().set_color(dpp::colors::blue).set_title(u8"🔔 Informe de Visita").add_field("Agendado por", quem_marcou.get_mention(), true).add_field("Nome do Dr(a).", doutor, true).add_field("Área", area, true).add_field("Data", data, true).add_field("Horário", horario, true).add_field("Unidade", unidade, true).add_field("Telefone", telefone, false);
+            dpp::embed embed = dpp::embed().set_color(dpp::colors::blue).set_title(quick_cast(u8"🔔 Informe de Visita")).add_field("Agendado por", quem_marcou.get_mention(), true).add_field("Nome do Dr(a).", doutor, true).add_field("Área", area, true).add_field("Data", data, true).add_field("Horário", horario, true).add_field("Unidade", unidade, true).add_field("Telefone", telefone, false);
             dpp::message msg(CANAL_VISITAS, embed);
             bot->message_create(msg);
-            event.reply(u8"✅ Visita agendada e informada com sucesso!");
+            event.reply(quick_cast(u8"✅ Visita agendada e informada com sucesso!"));
         }
         else if (event.command.get_command_name() == "demanda" || event.command.get_command_name() == "pedido") {
             bool is_pedido = event.command.get_command_name() == "pedido";
@@ -122,7 +122,7 @@ int main() {
             nova_solicitacao.is_pedido = is_pedido;
             banco_de_dados[novo_codigo] = nova_solicitacao;
             save_database();
-            dpp::embed embed = dpp::embed().set_color(is_pedido ? dpp::colors::light_sea_green : dpp::colors::orange).set_title(is_pedido ? u8"📢 Novo Pedido Criado" : u8"❗ Nova Demanda Criada").add_field("Código", std::to_string(novo_codigo), false).add_field("Responsável", responsavel.get_mention(), true).add_field("Criado por", event.command.get_issuing_user().get_mention(), true);
+            dpp::embed embed = dpp::embed().set_color(is_pedido ? dpp::colors::light_sea_green : dpp::colors::orange).set_title(is_pedido ? quick_cast(u8"📢 Novo Pedido Criado") : quick_cast(u8"❗ Nova Demanda Criada")).add_field("Código", std::to_string(novo_codigo), false).add_field("Responsável", responsavel.get_mention(), true).add_field("Criado por", event.command.get_issuing_user().get_mention(), true);
             if (!is_pedido) { embed.add_field("Prazo de Entrega", prazo, true); }
             embed.add_field(is_pedido ? "Pedido" : "Demanda", texto, false);
             dpp::message msg;
@@ -130,7 +130,7 @@ int main() {
             msg.set_content(std::string("Nova solicitação para o responsável: ") + responsavel.get_mention());
             msg.add_embed(embed);
             bot->message_create(msg);
-            dpp::embed dm_embed = dpp::embed().set_color(is_pedido ? dpp::colors::light_sea_green : dpp::colors::orange).set_title(is_pedido ? u8"📬 Você recebeu um novo pedido!" : u8"📬 Você recebeu uma nova demanda!").add_field("Código", std::to_string(novo_codigo), false).add_field(is_pedido ? "Pedido" : "Demanda", texto, false);
+            dpp::embed dm_embed = dpp::embed().set_color(is_pedido ? dpp::colors::light_sea_green : dpp::colors::orange).set_title(is_pedido ? quick_cast(u8"📬 Você recebeu um novo pedido!") : quick_cast(u8"📬 Você recebeu uma nova demanda!")).add_field("Código", std::to_string(novo_codigo), false).add_field(is_pedido ? "Pedido" : "Demanda", texto, false);
             if (!is_pedido) { dm_embed.add_field("Prazo de Entrega", prazo, false); }
             dm_embed.set_footer(dpp::embed_footer().set_text(std::string("Solicitado por: ") + event.command.get_issuing_user().username));
             dpp::message dm_message;
@@ -148,7 +148,7 @@ int main() {
                 Solicitacao item_concluido = banco_de_dados[codigo];
                 banco_de_dados.erase(codigo);
                 save_database();
-                std::string title = item_concluido.is_pedido ? (is_cancel ? u8"❌ Pedido Cancelado" : u8"✅ Pedido Finalizado") : u8"✅ Demanda Finalizada";
+                std::string title = item_concluido.is_pedido ? (is_cancel ? quick_cast(u8"❌ Pedido Cancelado") : quick_cast(u8"✅ Pedido Finalizado")) : quick_cast(u8"✅ Demanda Finalizada");
                 dpp::embed embed = dpp::embed().set_color(is_cancel ? dpp::colors::red : dpp::colors::dark_green).set_title(title).add_field("Código", std::to_string(item_concluido.id), false).add_field("Responsável", "<@" + std::to_string(item_concluido.id_usuario_responsavel) + ">", true).add_field("Finalizado por", event.command.get_issuing_user().get_mention(), true).add_field(item_concluido.is_pedido ? "Pedido" : "Demanda", item_concluido.texto, false);
                 if (event.command.get_command_name() != "cancelar_pedido") {
                     auto param_anexo = event.get_parameter("prova");
@@ -169,7 +169,7 @@ int main() {
         else if (event.command.get_command_name() == "limpar_demandas") {
             banco_de_dados.clear();
             save_database();
-            event.reply(dpp::message(u8"🧹 Todas as demandas e pedidos ativos foram limpos do banco de dados.").set_flags(dpp::m_ephemeral));
+            event.reply(dpp::message(quick_cast(u8"🧹 Todas as demandas e pedidos ativos foram limpos do banco de dados.")).set_flags(dpp::m_ephemeral));
         }
         else if (event.command.get_command_name() == "lista_demandas") {
             dpp::snowflake user_id = std::get<dpp::snowflake>(event.get_parameter("usuario"));
@@ -187,48 +187,12 @@ int main() {
                 }
             }
             dpp::embed embed;
-            embed.set_color(dpp::colors::white).set_title(u8"📋 Solicitações Pendentes de " + usuario_alvo.username);
+            embed.set_color(dpp::colors::white).set_title(quick_cast(u8"📋 Solicitações Pendentes de ") + usuario_alvo.username);
             if (count > 0) { embed.set_description(lista_texto); }
             else { embed.set_description("Este usuário não possui nenhuma demanda ou pedido pendente."); }
             event.reply(dpp::message().add_embed(embed));
         }
-        else if (event.command.get_command_name() == "novo_lead") {
-            std::string origem = std::get<std::string>(event.get_parameter("origem"));
-            std::string data = std::get<std::string>(event.get_parameter("data"));
-            std::string hora = std::get<std::string>(event.get_parameter("hora"));
-            std::string nome = std::get<std::string>(event.get_parameter("nome"));
-            std::string contato = std::get<std::string>(event.get_parameter("contato"));
-            std::string area = std::get<std::string>(event.get_parameter("area"));
-            uint64_t codigo_lead = gerar_codigo();
-            json payload;
-            payload["secret"] = SCRIPT_SECRET;
-            payload["origem"] = origem;
-            payload["data"] = data;
-            payload["hora"] = hora;
-            payload["nome"] = nome;
-            payload["contato"] = contato;
-            payload["area"] = area;
-            payload["codigo_lead"] = std::to_string(codigo_lead);
-
-            bot->request(
-                SCRIPT_LEADS_URL,
-                dpp::m_post,
-                [bot, event](const dpp::http_request_completion_t& cc) {
-                    if (cc.status == 200) {
-                        bot->log(dpp::ll_info, "Lead enviado para a planilha com sucesso.");
-                        event.edit_original_response(dpp::message(u8"✅ Lead adicionado à planilha com sucesso!"));
-                    }
-                    else {
-                        bot->log(dpp::ll_error, "Falha ao enviar lead para a planilha: " + cc.body);
-                        event.edit_original_response(dpp::message(u8"❌ Falha ao adicionar lead na planilha. Verifique o console do bot."));
-                    }
-                },
-                payload.dump(),
-                "application/json"
-            );
-            event.reply(dpp::message("Processando...").set_flags(dpp::m_ephemeral));
-        }
-        });
+    });
 
     bot.on_message_create([](const dpp::message_create_t& event) {
         if (event.msg.author.is_bot() || event.msg.channel_id == CANAL_DE_LOGS) { return; }
@@ -312,20 +276,6 @@ int main() {
             cancelar_pedido_cmd.set_default_permissions(0);
             cancelar_pedido_cmd.add_permission(dpp::command_permission(CARGO_PERMITIDO, dpp::cpt_role, true));
 
-            dpp::slashcommand novolead_cmd("novo_lead", "Adiciona um novo lead à planilha.", bot.me.id);
-            novolead_cmd.add_option(
-                dpp::command_option(dpp::co_string, "origem", "De onde veio o lead", true)
-                .add_choice(dpp::command_option_choice("Whatsapp", std::string("Whatsapp")))
-                .add_choice(dpp::command_option_choice("Instagram", std::string("Instagram")))
-                .add_choice(dpp::command_option_choice("Facebook", std::string("Facebook")))
-                .add_choice(dpp::command_option_choice("Site", std::string("Site")))
-            );
-            novolead_cmd.add_option(dpp::command_option(dpp::co_string, "data", "Data do primeiro contato (dd/mm/aaaa)", true));
-            novolead_cmd.add_option(dpp::command_option(dpp::co_string, "hora", "Hora do primeiro contato (hh:mm)", true));
-            novolead_cmd.add_option(dpp::command_option(dpp::co_string, "nome", "Nome completo do lead", true));
-            novolead_cmd.add_option(dpp::command_option(dpp::co_string, "contato", "Telefone de contato do lead", true));
-            novolead_cmd.add_option(dpp::command_option(dpp::co_string, "area", "Área de atuação do lead", true));
-
             bot.guild_bulk_command_create({
                 visitas_cmd,
                 demanda_cmd,
@@ -334,8 +284,7 @@ int main() {
                 lista_cmd,
                 pedido_cmd,
                 finalizar_pedido_cmd,
-                cancelar_pedido_cmd,
-                novolead_cmd
+                cancelar_pedido_cmd                
                 }, SEU_SERVER_ID);
         }
 
