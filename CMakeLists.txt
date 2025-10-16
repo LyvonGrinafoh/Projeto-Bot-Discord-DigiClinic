@@ -5,6 +5,7 @@ project(discord-bot VERSION 1.0 DESCRIPTION "A discord bot")
 
 execute_process( COMMAND git submodule update --init --recursive )
 
+set(BUILD_SHARED_LIBS ON)
 # Add DPP as dependency
 add_subdirectory(libs/DPP)
 
@@ -12,18 +13,31 @@ add_subdirectory(libs/DPP)
 add_executable(${PROJECT_NAME}
     src/main.cpp
     src/tabela.cpp
-    # your others files...
- "include/tabela.h" "src/tabela.cpp")
+)
 
 # Linking libraries
-target_link_libraries(${PROJECT_NAME}
+# AQUI A GENTE ADICIONA AS NOVAS LIBS, MANTENDO A DPP INTOCADA
+target_link_libraries(${PROJECT_NAME} PRIVATE
     dpp
+
+    # Caminhos completos para os arquivos .lib que compilamos
+    "C:/Users/mathe/Documents/Bot Digital Clinic/zlib131/zlib-1.3.1/build/Release/zlib.lib"
+    "C:/Users/mathe/Documents/Bot Digital Clinic/Projeto-Bot-Discord-DigiClinic/libxlsxwriter/build/Release/xlsxwriter.lib"
 )
 
 # Specify includes
+# E AQUI A GENTE ADICIONA OS NOVOS HEADERS, MANTENDO OS DA DPP INTOCADOS
 target_include_directories(${PROJECT_NAME} PRIVATE
+    # Seus includes que já funcionavam
     libs/DPP/include
     include
+
+    # Headers da ZLIB (um na raiz, outro na pasta de build)
+    "C:/Users/mathe/Documents/Bot Digital Clinic/zlib131/zlib-1.3.1"
+    "C:/Users/mathe/Documents/Bot Digital Clinic/zlib131/zlib-1.3.1/build"
+
+    # Headers da libxlsxwriter (na pasta include do código-fonte)
+    "C:/Users/mathe/Documents/Bot Digital Clinic/Projeto-Bot-Discord-DigiClinic/libxlsxwriter/include"
 )
 
 # Set C++ version
