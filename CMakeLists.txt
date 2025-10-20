@@ -8,15 +8,12 @@ project(discord-bot VERSION 1.0 DESCRIPTION "A discord bot")
 
 
 
-# --- Início do Bloco ZLIB ---
 
-# Adiciona o módulo para poder baixar coisas
 
 include(FetchContent)
 
 
 
-# Declara de onde baixar o ZLIB
 
 FetchContent_Declare(
 
@@ -24,17 +21,17 @@ FetchContent_Declare(
 
   GIT_REPOSITORY https://github.com/madler/zlib.git
 
-  GIT_TAG        v1.3.1 # Usando uma versão estável
+  GIT_TAG        v1.3.1 
 
 )
 
 
 
-# Manda o CMake baixar e configurar o zlib
+
 
 FetchContent_MakeAvailable(zlib)
 
-# --- Fim do Bloco ZLIB ---
+
 
 execute_process( COMMAND git submodule update --init --recursive )
 
@@ -48,9 +45,6 @@ add_subdirectory(libs/DPP)
 
 
 
-# --- Define variáveis para os caminhos das libs (ajuste se necessário) ---
-
-# Garanta que essas pastas existem dentro de 'libs/'
 
 set(ZLIB_DIR ${PROJECT_SOURCE_DIR}/libs/zlib-1.3.1)
 
@@ -58,21 +52,12 @@ set(XLSXWRITER_DIR ${PROJECT_SOURCE_DIR}/libs/libxlsxwriter)
 
 
 
-# --- Encontre os arquivos .lib (Ajuste Release/Debug conforme necessário) ---
-
-# Se você compilou em Debug, troque Release por Debug aqui
 
 set(ZLIB_LIB ${ZLIB_DIR}/build/Release/zlib.lib)
 
 set(XLSXWRITER_LIB ${XLSXWRITER_DIR}/build/Release/xlsxwriter.lib)
 
 
-
-# --- Verifique se os arquivos .lib existem ---
-
-# Se um desses der erro, significa que a compilação da lib correspondente falhou
-
-# ou o arquivo .lib não está no caminho esperado (build/Release/).
 
 if(NOT EXISTS ${ZLIB_LIB})
 
@@ -88,9 +73,7 @@ endif()
 
 
 
-# --- Define variáveis para os includes ---
 
-# Garanta que os .h estão nessas pastas
 
 set(ZLIB_INCLUDE_DIR ${ZLIB_DIR} ${ZLIB_DIR}/build) # Pasta raiz e pasta de build da zlib
 
@@ -104,7 +87,6 @@ add_executable(${PROJECT_NAME}
 
     src/main.cpp
 
-    # src/tabela.cpp # Adicione de volta se você tiver esse arquivo
 
 )
 
@@ -114,11 +96,11 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
 
-    dpp               # Linka a DPP (já definida pelo add_subdirectory)
+    dpp               
 
-    ${ZLIB_LIB}       # Linka o arquivo .lib específico da zlib
+    ${ZLIB_LIB}       
 
-    ${XLSXWRITER_LIB} # Linka o arquivo .lib específico da libxlsxwriter
+    ${XLSXWRITER_LIB} 
 
 )
 
@@ -128,13 +110,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 
-    libs/DPP/include          # Headers da DPP
+    libs/DPP/include          
 
-    include                   # Seus próprios headers (se tiver a pasta 'include')
+    include                   
 
-    ${ZLIB_INCLUDE_DIR}       # Headers da Zlib
+    ${ZLIB_INCLUDE_DIR}       
 
-    ${XLSXWRITER_INCLUDE_DIR} # Headers da libxlsxwriter
+    ${XLSXWRITER_INCLUDE_DIR} 
 
 )
 
