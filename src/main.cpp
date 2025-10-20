@@ -15,6 +15,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <csignal>
+#include <sstream> 
+
+#include <nlohmann/json.hpp> 
 
 using json = nlohmann::json;
 
@@ -45,9 +48,9 @@ const std::string VISITAS_DATABASE_FILE = "visitas_database.json";
 const std::string LOG_FILE = "bot_log.txt";
 
 enum TipoSolicitacao {
-    DEMANDA,  // 0
-    PEDIDO,   // 1
-    LEMBRETE  // 2
+    DEMANDA,
+    PEDIDO,
+    LEMBRETE
 };
 
 struct Solicitacao {
@@ -106,6 +109,7 @@ struct Visita {
     std::string horario;
     std::string unidade;
     std::string telefone;
+    std::string observacoes;
 };
 std::map<uint64_t, Visita> visitas_database;
 
@@ -198,8 +202,8 @@ void to_json(json& j, const Lead& l) { j = json{ {"id", l.id}, {"origem", l.orig
 void from_json(const json& j, Lead& l) { j.at("id").get_to(l.id); j.at("origem").get_to(l.origem); j.at("data_contato").get_to(l.data_contato); j.at("hora_contato").get_to(l.hora_contato); j.at("nome").get_to(l.nome); j.at("contato").get_to(l.contato); j.at("area_atuacao").get_to(l.area_atuacao); j.at("conhece_formato").get_to(l.conhece_formato); j.at("veio_campanha").get_to(l.veio_campanha); j.at("respondido").get_to(l.respondido); j.at("data_hora_resposta").get_to(l.data_hora_resposta); j.at("problema_contato").get_to(l.problema_contato); j.at("observacoes").get_to(l.observacoes); j.at("status_conversa").get_to(l.status_conversa); j.at("status_followup").get_to(l.status_followup); j.at("unidade").get_to(l.unidade); j.at("convidou_visita").get_to(l.convidou_visita); j.at("agendou_visita").get_to(l.agendou_visita); j.at("tipo_fechamento").get_to(l.tipo_fechamento); j.at("teve_adicionais").get_to(l.teve_adicionais); j.at("valor_fechamento").get_to(l.valor_fechamento); j.at("print_final_conversa").get_to(l.print_final_conversa); if (j.contains("criado_por")) { j.at("criado_por").get_to(l.criado_por); } }
 void to_json(json& j, const Compra& c) { j = json{ {"id", c.id}, {"item", c.item}, {"observacao", c.observacao}, {"solicitado_por", c.solicitado_por}, {"data_solicitacao", c.data_solicitacao} }; }
 void from_json(const json& j, Compra& c) { j.at("id").get_to(c.id); j.at("item").get_to(c.item); j.at("observacao").get_to(c.observacao); j.at("solicitado_por").get_to(c.solicitado_por); j.at("data_solicitacao").get_to(c.data_solicitacao); }
-void to_json(json& j, const Visita& v) { j = json{ {"id", v.id}, {"quem_marcou_id", v.quem_marcou_id}, {"quem_marcou_nome", v.quem_marcou_nome}, {"doutor", v.doutor}, {"area", v.area}, {"data", v.data}, {"horario", v.horario}, {"unidade", v.unidade}, {"telefone", v.telefone} }; }
-void from_json(const json& j, Visita& v) { j.at("id").get_to(v.id); j.at("quem_marcou_id").get_to(v.quem_marcou_id); j.at("quem_marcou_nome").get_to(v.quem_marcou_nome); j.at("doutor").get_to(v.doutor); j.at("area").get_to(v.area); j.at("data").get_to(v.data); j.at("horario").get_to(v.horario); j.at("unidade").get_to(v.unidade); j.at("telefone").get_to(v.telefone); }
+void to_json(json& j, const Visita& v) { j = json{ {"id", v.id}, {"quem_marcou_id", v.quem_marcou_id}, {"quem_marcou_nome", v.quem_marcou_nome}, {"doutor", v.doutor}, {"area", v.area}, {"data", v.data}, {"horario", v.horario}, {"unidade", v.unidade}, {"telefone", v.telefone}, {"observacoes", v.observacoes} }; }
+void from_json(const json& j, Visita& v) { j.at("id").get_to(v.id); j.at("quem_marcou_id").get_to(v.quem_marcou_id); j.at("quem_marcou_nome").get_to(v.quem_marcou_nome); j.at("doutor").get_to(v.doutor); j.at("area").get_to(v.area); j.at("data").get_to(v.data); j.at("horario").get_to(v.horario); j.at("unidade").get_to(v.unidade); j.at("telefone").get_to(v.telefone); if (j.contains("observacoes")) { j.at("observacoes").get_to(v.observacoes); } else { v.observacoes = ""; } }
 
 void save_database() { std::ofstream file(DATABASE_FILE); json j = banco_de_dados; file << j.dump(4); file.close(); }
 void load_database() {
@@ -305,10 +309,10 @@ void gerar_e_enviar_planilha_compras(const dpp::slashcommand_t& event);
 void gerar_e_enviar_planilha_visitas(const dpp::slashcommand_t& event);
 
 void enviar_lembretes(dpp::cluster& bot) {
-    bot.log(dpp::ll_info, "Verificando e enviando lembretes de demandas...");
+    bot.log(dpp::ll_info, "Verificando e enviando lembretes...");
     std::map<dpp::snowflake, std::vector<Solicitacao>> solicitacoes_por_usuario;
     for (auto const& [id, solicitacao] : banco_de_dados) {
-        if (solicitacao.tipo != PEDIDO) { // Pedidos não geram lembretes
+        if (solicitacao.tipo != PEDIDO) {
             solicitacoes_por_usuario[solicitacao.id_usuario_responsavel].push_back(solicitacao);
         }
     }
@@ -331,6 +335,8 @@ void enviar_lembretes(dpp::cluster& bot) {
 
 void handle_visitas(const dpp::slashcommand_t& event);
 void handle_cancelar_visita(const dpp::slashcommand_t& event);
+void handle_lista_visitas(const dpp::slashcommand_t& event);
+void handle_modificar_visita(const dpp::slashcommand_t& event);
 void handle_demanda_pedido(const dpp::slashcommand_t& event);
 void handle_finalizar_solicitacao(const dpp::slashcommand_t& event);
 void handle_limpar_demandas(const dpp::slashcommand_t& event);
@@ -346,6 +352,7 @@ void handle_placa(const dpp::slashcommand_t& event);
 void handle_finalizar_placa(const dpp::slashcommand_t& event);
 void handle_adicionar_compra(const dpp::slashcommand_t& event);
 void handle_lembrete(const dpp::slashcommand_t& event);
+
 
 void signal_handler(int signum) {
     std::string msg = "Bot finalizando via sinal " + std::to_string(signum) + " (Ctrl+C)...";
@@ -375,6 +382,8 @@ int main() {
     std::map<std::string, std::function<void(const dpp::slashcommand_t&)>> command_handler;
     command_handler["visitas"] = handle_visitas;
     command_handler["cancelar_visita"] = handle_cancelar_visita;
+    command_handler["lista_visitas"] = handle_lista_visitas;
+    command_handler["modificar_visita"] = handle_modificar_visita;
     command_handler["demanda"] = handle_demanda_pedido;
     command_handler["pedido"] = handle_demanda_pedido;
     command_handler["finalizar_demanda"] = handle_finalizar_solicitacao;
@@ -498,9 +507,24 @@ int main() {
             visitas_cmd.add_option(dpp::command_option(dpp::co_string, "horario", "Horário da visita (ex: 14h).", true));
             visitas_cmd.add_option(dpp::command_option(dpp::co_string, "unidade", "Unidade da visita.", true));
             visitas_cmd.add_option(dpp::command_option(dpp::co_string, "telefone", "Telefone de contato.", true));
+            visitas_cmd.add_option(dpp::command_option(dpp::co_string, "observacao", "Observação inicial (opcional).", false));
 
-            dpp::slashcommand cancelar_visita_cmd("cancelar_visita", "Cancela uma visita agendada.", bot.me.id);
+            dpp::slashcommand cancelar_visita_cmd("cancelar_visita", "Cancela uma visita agendada, registrando o motivo.", bot.me.id);
             cancelar_visita_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O código da visita a ser cancelada.", true));
+            cancelar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "motivo", "O motivo do cancelamento.", true));
+
+            dpp::slashcommand lista_visitas_cmd("lista_visitas", "Mostra as próximas visitas agendadas.", bot.me.id);
+
+            dpp::slashcommand modificar_visita_cmd("modificar_visita", "Modifica uma visita agendada.", bot.me.id);
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O código da visita a ser modificada.", true));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "motivo", "Motivo da modificação (registrado no histórico).", true));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "doutor", "Novo nome do Dr(a).", false));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "area", "Nova área de atuação.", false));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "data", "Nova data da visita.", false));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "horario", "Novo horário da visita.", false));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "unidade", "Nova unidade da visita.", false));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "telefone", "Novo telefone de contato.", false));
+            modificar_visita_cmd.add_option(dpp::command_option(dpp::co_string, "nova_observacao", "Adicionar uma nova observação ao histórico.", false));
 
             dpp::slashcommand demanda_cmd("demanda", "Cria uma nova demanda para um usuário.", bot.me.id);
             demanda_cmd.add_option(dpp::command_option(dpp::co_user, "responsavel", "O usuário que receberá a demanda.", true));
@@ -511,9 +535,9 @@ int main() {
             dpp::slashcommand finalizar_demanda_cmd("finalizar_demanda", "Finaliza uma demanda existente.", bot.me.id);
             finalizar_demanda_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O código de 10 dígitos da demanda.", true));
             finalizar_demanda_cmd.add_option(dpp::command_option(dpp::co_attachment, "prova", "Uma imagem que comprova a finalização.", false));
-            dpp::slashcommand limpar_cmd("limpar_demandas", "Limpa TODAS as demandas e pedidos ativos.", bot.me.id);
+            dpp::slashcommand limpar_cmd("limpar_demandas", "Limpa TODAS as demandas, pedidos e lembretes ativos.", bot.me.id);
             limpar_cmd.default_member_permissions = dpp::p_administrator;
-            dpp::slashcommand lista_cmd("lista_demandas", "Mostra todas as solicitações pendentes de um usuário.", bot.me.id);
+            dpp::slashcommand lista_cmd("lista_demandas", "Mostra todas as pendências (demandas, pedidos, lembretes) de um usuário.", bot.me.id);
             lista_cmd.add_option(dpp::command_option(dpp::co_user, "usuario", "O usuário que você quer consultar.", true));
             dpp::slashcommand pedido_cmd("pedido", "Cria um novo pedido para um usuário.", bot.me.id);
             pedido_cmd.add_option(dpp::command_option(dpp::co_user, "responsavel", "O usuário que receberá o pedido.", true));
@@ -593,24 +617,43 @@ int main() {
             finalizar_lembrete_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O código do lembrete a ser finalizado.", true));
 
             bot.guild_bulk_command_create({
-                visitas_cmd, cancelar_visita_cmd, demanda_cmd, finalizar_demanda_cmd, limpar_cmd, lista_cmd,
+                visitas_cmd, cancelar_visita_cmd, lista_visitas_cmd, modificar_visita_cmd,
+                demanda_cmd, finalizar_demanda_cmd, limpar_cmd, lista_cmd,
                 pedido_cmd, finalizar_pedido_cmd, cancelar_pedido_cmd,
                 adicionar_lead_cmd, modificar_lead_cmd, listar_leads_cmd, gerar_planilha_cmd, ver_lead_cmd, limpar_leads_cmd, deletar_lead_cmd,
                 placa_cmd, finalizar_placa_cmd, adicionar_compra_cmd, lembrete_cmd, finalizar_lembrete_cmd
                 }, config.server_id);
         }
-        static bool lembretes_enviados_hoje = false;
+
         bot.start_timer([&bot](dpp::timer t) {
-            std::time_t tt = std::time(nullptr);
-            std::tm* agora = std::localtime(&tt);
-            if (agora->tm_hour == 9 && agora->tm_min == 0 && !lembretes_enviados_hoje) {
+            std::time_t now_utc = std::time(nullptr);
+            std::time_t now_brt_t = now_utc - 10800;
+            std::tm* brt_tm = std::gmtime(&now_brt_t);
+
+            int dia_semana = brt_tm->tm_wday;
+            int hora = brt_tm->tm_hour;
+
+            bool horario_comercial = false;
+
+            if (dia_semana >= 1 && dia_semana <= 5) {
+                if (hora >= 9 && hora < 18) {
+                    horario_comercial = true;
+                }
+            }
+            else if (dia_semana == 6) {
+                if (hora >= 9 && hora < 13) {
+                    horario_comercial = true;
+                }
+            }
+
+            if (horario_comercial) {
+                bot.log(dpp::ll_info, "Dentro do horário comercial. Verificando lembretes...");
                 enviar_lembretes(bot);
-                lembretes_enviados_hoje = true;
             }
-            if (agora->tm_hour != 9 && lembretes_enviados_hoje) {
-                lembretes_enviados_hoje = false;
+            else {
+                bot.log(dpp::ll_info, "Fora do horário comercial. Pulando envio de lembretes.");
             }
-            }, 60);
+            }, 7200);
         });
 
     bot.start(dpp::st_wait);
@@ -618,6 +661,7 @@ int main() {
     log_to_file("--- Bot finalizado com sucesso ---");
     return 0;
 }
+
 
 void handle_visitas(const dpp::slashcommand_t& event) {
     dpp::cluster* bot = event.from()->creator;
@@ -634,6 +678,13 @@ void handle_visitas(const dpp::slashcommand_t& event) {
     nova_visita.unidade = std::get<std::string>(event.get_parameter("unidade"));
     nova_visita.telefone = std::get<std::string>(event.get_parameter("telefone"));
 
+    std::string timestamp_obs = format_timestamp(std::time(nullptr));
+    nova_visita.observacoes = "[" + timestamp_obs + " | " + quem_marcou.username + "]: Visita agendada.";
+    auto obs_param = event.get_parameter("observacao");
+    if (std::holds_alternative<std::string>(obs_param)) {
+        nova_visita.observacoes += "\n  Observação inicial: " + std::get<std::string>(obs_param);
+    }
+
     visitas_database[nova_visita.id] = nova_visita;
     save_visitas_database();
 
@@ -646,8 +697,13 @@ void handle_visitas(const dpp::slashcommand_t& event) {
         .add_field("Data", nova_visita.data, true)
         .add_field("Horário", nova_visita.horario, true)
         .add_field("Unidade", nova_visita.unidade, true)
-        .add_field("Telefone", nova_visita.telefone, false)
-        .set_footer(dpp::embed_footer().set_text("Código da Visita: " + std::to_string(nova_visita.id)));
+        .add_field("Telefone", nova_visita.telefone, false);
+
+    if (std::holds_alternative<std::string>(obs_param)) {
+        embed.add_field("Observação Inicial", std::get<std::string>(obs_param), false);
+    }
+
+    embed.set_footer(dpp::embed_footer().set_text("Código da Visita: " + std::to_string(nova_visita.id)));
 
     dpp::message msg(config.canal_visitas, embed);
     bot->message_create(msg);
@@ -657,26 +713,157 @@ void handle_visitas(const dpp::slashcommand_t& event) {
 void handle_cancelar_visita(const dpp::slashcommand_t& event) {
     dpp::cluster* bot = event.from()->creator;
     int64_t codigo = std::get<int64_t>(event.get_parameter("codigo"));
+    std::string motivo = std::get<std::string>(event.get_parameter("motivo"));
+    dpp::user cancelador = event.command.get_issuing_user();
 
     if (visitas_database.count(codigo)) {
-        Visita visita_cancelada = visitas_database[codigo];
-        visitas_database.erase(codigo);
-        save_visitas_database();
+        Visita& visita = visitas_database.at(codigo);
 
-        dpp::embed embed = dpp::embed()
-            .set_color(dpp::colors::red)
-            .set_title("❌ Visita Cancelada")
-            .add_field("Dr(a).", visita_cancelada.doutor, true)
-            .add_field("Data", visita_cancelada.data + " às " + visita_cancelada.horario, true)
-            .set_footer(dpp::embed_footer().set_text("Cancelado por: " + event.command.get_issuing_user().username));
+        std::string timestamp_obs = format_timestamp(std::time(nullptr));
+        std::string nota_cancelamento = "\n\n[" + timestamp_obs + " | " + cancelador.username + "]: Visita Cancelada - Motivo: " + motivo;
 
-        bot->message_create(dpp::message(config.canal_visitas, embed));
-        event.reply("✅ Visita `" + std::to_string(codigo) + "` cancelada com sucesso!");
+        if (visita.observacoes.find("Visita Cancelada") == std::string::npos) {
+            visita.observacoes += nota_cancelamento;
+            save_visitas_database();
+
+            dpp::embed embed = dpp::embed()
+                .set_color(dpp::colors::red)
+                .set_title("❌ Visita Cancelada Registrada")
+                .add_field("Dr(a).", visita.doutor, true)
+                .add_field("Data", visita.data + " às " + visita.horario, true)
+                .add_field("Motivo", motivo, false)
+                .set_footer(dpp::embed_footer().set_text("Cancelamento registrado por: " + cancelador.username + " | Código: " + std::to_string(codigo)));
+
+            bot->message_create(dpp::message(config.canal_visitas, embed));
+            event.reply("✅ Visita `" + std::to_string(codigo) + "` marcada como cancelada com sucesso!");
+
+        }
+        else {
+            event.reply(dpp::message("⚠️ Esta visita já consta como cancelada no histórico.").set_flags(dpp::m_ephemeral));
+        }
+
     }
     else {
-        event.reply(dpp::message("Código de visita não encontrado.").set_flags(dpp::m_ephemeral));
+        event.reply(dpp::message("❌ Código de visita não encontrado.").set_flags(dpp::m_ephemeral));
     }
 }
+
+void handle_lista_visitas(const dpp::slashcommand_t& event) {
+    dpp::embed embed = dpp::embed()
+        .set_color(dpp::colors::blue)
+        .set_title("📅 Próximas Visitas Agendadas");
+
+    std::string description;
+    int count = 0;
+    int canceladas_count = 0;
+
+    std::vector<Visita> sorted_visitas;
+    for (const auto& pair : visitas_database) {
+        sorted_visitas.push_back(pair.second);
+    }
+
+
+    if (sorted_visitas.empty()) {
+        description = "Nenhuma visita agendada no momento.";
+    }
+    else {
+        for (const auto& visita : sorted_visitas) {
+            bool cancelada = (visita.observacoes.find("Visita Cancelada") != std::string::npos);
+
+            if (cancelada) {
+                description += "**[CANCELADA]** ";
+                canceladas_count++;
+            }
+            description += "**Dr(a):** " + visita.doutor + "\n";
+            description += "**Código:** `" + std::to_string(visita.id) + "`\n";
+            description += "**Data:** " + visita.data + " às " + visita.horario + "\n";
+            description += "**Unidade:** " + visita.unidade + "\n";
+            description += "**Agendado por:** " + visita.quem_marcou_nome + "\n";
+            description += "--------------------\n";
+            count++;
+        }
+        embed.set_title(embed.title + " (" + std::to_string(count - canceladas_count) + " ativas, " + std::to_string(canceladas_count) + " canceladas)");
+    }
+
+    embed.set_description(description);
+    event.reply(dpp::message().add_embed(embed));
+}
+
+void handle_modificar_visita(const dpp::slashcommand_t& event) {
+    dpp::cluster* bot = event.from()->creator;
+    int64_t codigo = std::get<int64_t>(event.get_parameter("codigo"));
+    std::string motivo = std::get<std::string>(event.get_parameter("motivo"));
+    dpp::user modificador = event.command.get_issuing_user();
+
+    if (visitas_database.count(codigo)) {
+        Visita& visita = visitas_database.at(codigo);
+        std::string timestamp_obs = format_timestamp(std::time(nullptr));
+        std::string log_modificacao = "\n\n[" + timestamp_obs + " | " + modificador.username + "]: Modificação - " + motivo + ".";
+        bool modificado = false;
+
+        auto doutor_param = event.get_parameter("doutor");
+        if (std::holds_alternative<std::string>(doutor_param)) {
+            std::string novo_doutor = std::get<std::string>(doutor_param);
+            log_modificacao += "\n  - Doutor alterado de '" + visita.doutor + "' para '" + novo_doutor + "'.";
+            visita.doutor = novo_doutor;
+            modificado = true;
+        }
+        auto area_param = event.get_parameter("area");
+        if (std::holds_alternative<std::string>(area_param)) {
+            std::string novo_valor = std::get<std::string>(area_param);
+            log_modificacao += "\n  - Área alterada de '" + visita.area + "' para '" + novo_valor + "'.";
+            visita.area = novo_valor;
+            modificado = true;
+        }
+        auto data_param = event.get_parameter("data");
+        if (std::holds_alternative<std::string>(data_param)) {
+            std::string novo_valor = std::get<std::string>(data_param);
+            log_modificacao += "\n  - Data alterada de '" + visita.data + "' para '" + novo_valor + "'.";
+            visita.data = novo_valor;
+            modificado = true;
+        }
+        auto horario_param = event.get_parameter("horario");
+        if (std::holds_alternative<std::string>(horario_param)) {
+            std::string novo_valor = std::get<std::string>(horario_param);
+            log_modificacao += "\n  - Horário alterado de '" + visita.horario + "' para '" + novo_valor + "'.";
+            visita.horario = novo_valor;
+            modificado = true;
+        }
+        auto unidade_param = event.get_parameter("unidade");
+        if (std::holds_alternative<std::string>(unidade_param)) {
+            std::string novo_valor = std::get<std::string>(unidade_param);
+            log_modificacao += "\n  - Unidade alterada de '" + visita.unidade + "' para '" + novo_valor + "'.";
+            visita.unidade = novo_valor;
+            modificado = true;
+        }
+        auto telefone_param = event.get_parameter("telefone");
+        if (std::holds_alternative<std::string>(telefone_param)) {
+            std::string novo_valor = std::get<std::string>(telefone_param);
+            log_modificacao += "\n  - Telefone alterado de '" + visita.telefone + "' para '" + novo_valor + "'.";
+            visita.telefone = novo_valor;
+            modificado = true;
+        }
+        auto nova_obs_param = event.get_parameter("nova_observacao");
+        if (std::holds_alternative<std::string>(nova_obs_param)) {
+            log_modificacao += "\n  - Nova observação adicionada: " + std::get<std::string>(nova_obs_param);
+            modificado = true;
+        }
+
+        if (modificado) {
+            visita.observacoes += log_modificacao;
+            save_visitas_database();
+            event.reply("✅ Visita `" + std::to_string(codigo) + "` modificada com sucesso!");
+        }
+        else {
+            event.reply(dpp::message("⚠️ Nenhuma alteração foi especificada para a visita `" + std::to_string(codigo) + "`.").set_flags(dpp::m_ephemeral));
+        }
+
+    }
+    else {
+        event.reply(dpp::message("❌ Código da visita não encontrado.").set_flags(dpp::m_ephemeral));
+    }
+}
+
 
 void handle_demanda_pedido(const dpp::slashcommand_t& event) {
     dpp::cluster* bot = event.from()->creator;
@@ -825,6 +1012,33 @@ void handle_lista_demandas(const dpp::slashcommand_t& event) {
     event.reply(dpp::message().add_embed(embed));
 }
 
+void handle_lembrete(const dpp::slashcommand_t& event) {
+    dpp::cluster* bot = event.from()->creator;
+    dpp::user autor = event.command.get_issuing_user();
+
+    Solicitacao novo_lembrete;
+    novo_lembrete.id = gerar_codigo();
+    novo_lembrete.id_usuario_responsavel = autor.id;
+    novo_lembrete.nome_usuario_responsavel = autor.username;
+    novo_lembrete.texto = std::get<std::string>(event.get_parameter("lembrete"));
+    novo_lembrete.prazo = std::get<std::string>(event.get_parameter("prazo"));
+    novo_lembrete.tipo = LEMBRETE;
+
+    banco_de_dados[novo_lembrete.id] = novo_lembrete;
+    save_database();
+
+    dpp::embed dm_embed = dpp::embed()
+        .set_color(dpp::colors::sti_blue)
+        .set_title("🔔 Novo Lembrete Pessoal Criado!")
+        .add_field("Código", "`" + std::to_string(novo_lembrete.id) + "`", false)
+        .add_field("Lembrete", novo_lembrete.texto, false)
+        .add_field("Prazo", novo_lembrete.prazo, false);
+
+    bot->direct_message_create(autor.id, dpp::message().add_embed(dm_embed));
+
+    event.reply(dpp::message("✅ Lembrete criado com sucesso! Enviei os detalhes no seu privado. Código: `" + std::to_string(novo_lembrete.id) + "`").set_flags(dpp::m_ephemeral));
+}
+
 
 void handle_adicionar_lead(const dpp::slashcommand_t& event) {
     dpp::user author = event.command.get_issuing_user();
@@ -958,20 +1172,6 @@ void handle_listar_leads(const dpp::slashcommand_t& event) {
     event.reply(dpp::message().add_embed(embed));
 }
 
-void handle_gerar_planilha(const dpp::slashcommand_t& event) {
-    event.thinking(true);
-    std::string tipo = std::get<std::string>(event.get_parameter("tipo"));
-    if (tipo == "leads") {
-        gerar_e_enviar_planilha_leads(event);
-    }
-    else if (tipo == "compras") {
-        gerar_e_enviar_planilha_compras(event);
-    }
-    else if (tipo == "visitas") {
-        gerar_e_enviar_planilha_visitas(event);
-    }
-}
-
 void handle_ver_lead(const dpp::slashcommand_t& event) {
     int64_t codigo = std::get<int64_t>(event.get_parameter("codigo"));
     if (leads_database.count(codigo)) {
@@ -1025,6 +1225,7 @@ void handle_deletar_lead(const dpp::slashcommand_t& event) {
     }
 }
 
+
 void handle_placa(const dpp::slashcommand_t& event) {
     dpp::cluster* bot = event.from()->creator;
     std::string doutor = std::get<std::string>(event.get_parameter("doutor"));
@@ -1068,6 +1269,7 @@ void handle_finalizar_placa(const dpp::slashcommand_t& event) {
     event.reply("🎉 Arte da placa para **" + doutor + "** foi enviada com sucesso!");
 }
 
+
 void handle_adicionar_compra(const dpp::slashcommand_t& event) {
     Compra nova_compra;
     nova_compra.id = gerar_codigo();
@@ -1097,31 +1299,19 @@ void handle_adicionar_compra(const dpp::slashcommand_t& event) {
     event.reply(dpp::message().add_embed(embed));
 }
 
-void handle_lembrete(const dpp::slashcommand_t& event) {
-    dpp::cluster* bot = event.from()->creator;
-    dpp::user autor = event.command.get_issuing_user();
 
-    Solicitacao novo_lembrete;
-    novo_lembrete.id = gerar_codigo();
-    novo_lembrete.id_usuario_responsavel = autor.id;
-    novo_lembrete.nome_usuario_responsavel = autor.username;
-    novo_lembrete.texto = std::get<std::string>(event.get_parameter("lembrete"));
-    novo_lembrete.prazo = std::get<std::string>(event.get_parameter("prazo"));
-    novo_lembrete.tipo = LEMBRETE;
-
-    banco_de_dados[novo_lembrete.id] = novo_lembrete;
-    save_database();
-
-    dpp::embed dm_embed = dpp::embed()
-        .set_color(dpp::colors::sti_blue)
-        .set_title("🔔 Novo Lembrete Pessoal Criado!")
-        .add_field("Código", "`" + std::to_string(novo_lembrete.id) + "`", false)
-        .add_field("Lembrete", novo_lembrete.texto, false)
-        .add_field("Prazo", novo_lembrete.prazo, false);
-
-    bot->direct_message_create(autor.id, dpp::message().add_embed(dm_embed));
-
-    event.reply(dpp::message("✅ Lembrete criado com sucesso! Enviei os detalhes no seu privado. Código: `" + std::to_string(novo_lembrete.id) + "`").set_flags(dpp::m_ephemeral));
+void handle_gerar_planilha(const dpp::slashcommand_t& event) {
+    event.thinking(true);
+    std::string tipo = std::get<std::string>(event.get_parameter("tipo"));
+    if (tipo == "leads") {
+        gerar_e_enviar_planilha_leads(event);
+    }
+    else if (tipo == "compras") {
+        gerar_e_enviar_planilha_compras(event);
+    }
+    else if (tipo == "visitas") {
+        gerar_e_enviar_planilha_visitas(event);
+    }
 }
 
 void gerar_e_enviar_planilha_leads(const dpp::slashcommand_t& event) {
@@ -1261,32 +1451,44 @@ void gerar_e_enviar_planilha_visitas(const dpp::slashcommand_t& event) {
     lxw_workbook* workbook = workbook_new(filename.c_str());
     lxw_worksheet* worksheet = workbook_add_worksheet(workbook, "Visitas");
 
-    worksheet_set_column(worksheet, 0, 0, 20, NULL);
-    worksheet_set_column(worksheet, 1, 1, 30, NULL);
-    worksheet_set_column(worksheet, 2, 2, 25, NULL);
-    worksheet_set_column(worksheet, 3, 4, 15, NULL);
-    worksheet_set_column(worksheet, 5, 5, 20, NULL);
+    worksheet_set_column(worksheet, 0, 0, 15, NULL);
+    worksheet_set_column(worksheet, 1, 1, 15, NULL);
+    worksheet_set_column(worksheet, 2, 2, 30, NULL);
+    worksheet_set_column(worksheet, 3, 3, 25, NULL);
+    worksheet_set_column(worksheet, 4, 5, 15, NULL);
     worksheet_set_column(worksheet, 6, 6, 20, NULL);
-    worksheet_set_column(worksheet, 7, 7, 25, NULL);
+    worksheet_set_column(worksheet, 7, 7, 20, NULL);
+    worksheet_set_column(worksheet, 8, 8, 25, NULL);
+    worksheet_set_column(worksheet, 9, 9, 70, NULL);
 
     lxw_format* header_format = workbook_add_format(workbook);
     format_set_bold(header_format);
+    lxw_format* wrap_format = workbook_add_format(workbook);
+    format_set_text_wrap(wrap_format);
+    lxw_format* cancelled_format = workbook_add_format(workbook);
+    format_set_font_strikeout(cancelled_format);
 
-    const char* headers[] = { "ID", "Dr(a).", "Área", "Data", "Horário", "Unidade", "Telefone", "Agendado Por" };
-    for (int i = 0; i < 8; ++i) {
+
+    const char* headers[] = { "ID", "Status", "Dr(a).", "Área", "Data", "Horário", "Unidade", "Telefone", "Agendado Por", "Observações / Histórico" };
+    for (int i = 0; i < 10; ++i) {
         worksheet_write_string(worksheet, 0, i, headers[i], header_format);
     }
 
     int row = 1;
     for (const auto& [id, visita] : visitas_database) {
-        worksheet_write_number(worksheet, row, 0, visita.id, NULL);
-        worksheet_write_string(worksheet, row, 1, visita.doutor.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 2, visita.area.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 3, visita.data.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 4, visita.horario.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 5, visita.unidade.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 6, visita.telefone.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 7, visita.quem_marcou_nome.c_str(), NULL);
+        bool cancelada = (visita.observacoes.find("Visita Cancelada") != std::string::npos);
+        lxw_format* row_format = cancelada ? cancelled_format : NULL;
+
+        worksheet_write_number(worksheet, row, 0, visita.id, row_format);
+        worksheet_write_string(worksheet, row, 1, cancelada ? "Cancelada" : "Agendada", row_format);
+        worksheet_write_string(worksheet, row, 2, visita.doutor.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 3, visita.area.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 4, visita.data.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 5, visita.horario.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 6, visita.unidade.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 7, visita.telefone.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 8, visita.quem_marcou_nome.c_str(), row_format);
+        worksheet_write_string(worksheet, row, 9, visita.observacoes.c_str(), wrap_format);
         row++;
     }
 
