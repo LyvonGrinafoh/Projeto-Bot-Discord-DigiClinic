@@ -25,12 +25,14 @@ BotCore::BotCore() :
     bot_.token = configManager_.getConfig().token;
     if (!databaseManager_.loadAll()) { Utils::log_to_file("AVISO: Um ou mais arquivos de banco de dados podem estar corrompidos ou ausentes."); }
 
-    commandHandlerPtr_ = std::make_unique<CommandHandler>(bot_, databaseManager_, configManager_, reportGenerator_);
     eventHandlerPtr_ = std::make_unique<EventHandler>(bot_, configManager_);
+    commandHandlerPtr_ = std::make_unique<CommandHandler>(bot_, databaseManager_, configManager_, reportGenerator_, *eventHandlerPtr_);
 
     static_bot_ptr = &bot_;
-    std::signal(SIGINT, BotCore::signalHandler); std::signal(SIGTERM, BotCore::signalHandler);
-    setupEventHandlers(); setupReminderTimer();
+    std::signal(SIGINT, BotCore::signalHandler);
+    std::signal(SIGTERM, BotCore::signalHandler);
+    setupEventHandlers();
+    setupReminderTimer();
 }
 
 BotCore::~BotCore() {

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <string>
 #include <vector>
 #include <map>
@@ -16,6 +15,7 @@
 class DatabaseManager;
 class ConfigManager;
 class ReportGenerator;
+class EventHandler;
 
 class CommandHandler {
 private:
@@ -23,6 +23,7 @@ private:
     DatabaseManager& db_;
     ConfigManager& configManager_;
     ReportGenerator& reportGenerator_;
+    EventHandler& eventHandler_;
 
     VisitasCommands visitasCmds_;
     LeadCommands leadCmds_;
@@ -39,7 +40,8 @@ public:
         dpp::cluster& bot,
         DatabaseManager& db,
         ConfigManager& configMgr,
-        ReportGenerator& rg
+        ReportGenerator& rg,
+        EventHandler& eventHandler
     );
 
     void registerCommands();
@@ -50,5 +52,4 @@ public:
     friend class SolicitacaoCommands;
     friend class PlacaCommands;
     friend class CompraCommands;
-    // GerarPlanilhaCommand uses ReportGenerator now
 };

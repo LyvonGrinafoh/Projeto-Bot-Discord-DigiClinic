@@ -5,6 +5,7 @@
 
 class DatabaseManager;
 class CommandHandler;
+class EventHandler;
 
 class VisitasCommands {
 private:
@@ -12,9 +13,10 @@ private:
     DatabaseManager& db_;
     const BotConfig& config_;
     CommandHandler& cmdHandler_;
+    EventHandler& eventHandler_;
 
 public:
-    VisitasCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler);
+    VisitasCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler, EventHandler& eventHandler);
     void handle_visitas(const dpp::slashcommand_t& event);
     void handle_cancelar_visita(const dpp::slashcommand_t& event);
     void handle_lista_visitas(const dpp::slashcommand_t& event);

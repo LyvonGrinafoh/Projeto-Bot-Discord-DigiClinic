@@ -6,6 +6,7 @@
 class DatabaseManager;
 class ConfigManager;
 class CommandHandler;
+class EventHandler;
 
 class SolicitacaoCommands {
 private:
@@ -13,9 +14,10 @@ private:
     DatabaseManager& db_;
     const BotConfig& config_;
     CommandHandler& cmdHandler_;
+    EventHandler& eventHandler_;
 
 public:
-    SolicitacaoCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler);
+    SolicitacaoCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler, EventHandler& eventHandler);
     void handle_demanda_pedido(const dpp::slashcommand_t& event);
     void handle_finalizar_solicitacao(const dpp::slashcommand_t& event);
     void handle_limpar_demandas(const dpp::slashcommand_t& event);

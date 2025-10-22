@@ -2,6 +2,7 @@
 #include "DatabaseManager.h"
 #include "ConfigManager.h"
 #include "ReportGenerator.h"
+#include "EventHandler.h"
 #include "Utils.h"
 #include <string>
 #include <vector>
@@ -10,15 +11,17 @@ CommandHandler::CommandHandler(
     dpp::cluster& bot,
     DatabaseManager& db,
     ConfigManager& configMgr,
-    ReportGenerator& rg
+    ReportGenerator& rg,
+    EventHandler& eventHandler
 ) :
     bot_(bot),
     db_(db),
     configManager_(configMgr),
     reportGenerator_(rg),
-    visitasCmds_(bot, db, configManager_.getConfig(), *this),
-    leadCmds_(bot, db, configManager_.getConfig(), *this),
-    solicitacaoCmds_(bot, db, configManager_.getConfig(), *this),
+    eventHandler_(eventHandler),
+    visitasCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
+    leadCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
+    solicitacaoCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
     placaCmds_(bot, configManager_.getConfig(), *this),
     compraCmds_(bot, db, configManager_.getConfig(), *this),
     gerarPlanilhaCmd_(reportGenerator_)

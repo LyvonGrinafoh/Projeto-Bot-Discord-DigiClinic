@@ -5,6 +5,7 @@
 
 class DatabaseManager;
 class CommandHandler;
+class EventHandler;
 
 class LeadCommands {
 private:
@@ -12,9 +13,10 @@ private:
     DatabaseManager& db_;
     const BotConfig& config_;
     CommandHandler& cmdHandler_;
+    EventHandler& eventHandler_;
 
 public:
-    LeadCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler);
+    LeadCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler, EventHandler& eventHandler);
     void handle_adicionar_lead(const dpp::slashcommand_t& event);
     void handle_modificar_lead(const dpp::slashcommand_t& event);
     void handle_listar_leads(const dpp::slashcommand_t& event);
