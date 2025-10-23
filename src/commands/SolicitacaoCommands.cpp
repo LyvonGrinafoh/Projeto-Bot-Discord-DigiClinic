@@ -94,7 +94,7 @@ void SolicitacaoCommands::handle_lista_demandas(const dpp::slashcommand_t& event
         event.reply(dpp::message("Este usuário não possui nenhuma demanda, pedido ou lembrete pendente.").set_flags(dpp::m_ephemeral));
         return;
     }
-    PaginationState state; state.items = std::move(solicitacoes_do_usuario); state.originalUserID = event.command.get_issuing_user().id; state.listType = "demandas"; state.currentPage = 1; state.itemsPerPage = 5;
+    PaginationState state; state.channel_id = event.command.channel_id; state.items = std::move(solicitacoes_do_usuario); state.originalUserID = event.command.get_issuing_user().id; state.listType = "demandas"; state.currentPage = 1; state.itemsPerPage = 5;
     dpp::embed firstPageEmbed = generatePageEmbed(state); bool needsPagination = state.items.size() > state.itemsPerPage;
     event.reply(dpp::message(event.command.channel_id, firstPageEmbed),
         [this, state, needsPagination, event](const dpp::confirmation_callback_t& cb) mutable {
@@ -106,8 +106,11 @@ void SolicitacaoCommands::handle_lista_demandas(const dpp::slashcommand_t& event
                             if (msg_ptr) {
                                 auto& msg = *msg_ptr;
                                 eventHandler_.addPaginationState(msg.id, std::move(state));
-                                bot_.message_add_reaction(msg.id, msg.channel_id, "◀️");
-                                bot_.message_add_reaction(msg.id, msg.channel_id, "▶️");
+                                bot_.message_add_reaction(msg.id, msg.channel_id, "◀️", [this, msg](const dpp::confirmation_callback_t& reaction_cb) {
+                                    if (!reaction_cb.is_error()) {
+                                        bot_.message_add_reaction(msg.id, msg.channel_id, "▶️");
+                                    }
+                                    });
                             }
                             else { Utils::log_to_file("Erro: get_original_response não retornou um dpp::message."); }
                         }

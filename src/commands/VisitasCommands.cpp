@@ -152,7 +152,7 @@ void VisitasCommands::handle_modificar_visita(const dpp::slashcommand_t& event) 
         }
     }
     else {
-        event.reply(dpp::message("❌ Código da visita não encontrado.").set_flags(dpp::m_ephemeral));
+        event.reply(dpp::message("❌ Código de visita não encontrado.").set_flags(dpp::m_ephemeral));
     }
 }
 
