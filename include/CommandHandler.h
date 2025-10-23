@@ -11,11 +11,13 @@
 #include "PlacaCommands.h"
 #include "CompraCommands.h"
 #include "GerarPlanilhaCommand.h"
+#include "TicketCommands.h"
 
 class DatabaseManager;
 class ConfigManager;
 class ReportGenerator;
 class EventHandler;
+class TicketManager;
 
 class CommandHandler {
 private:
@@ -24,6 +26,7 @@ private:
     ConfigManager& configManager_;
     ReportGenerator& reportGenerator_;
     EventHandler& eventHandler_;
+    TicketManager& ticketManager_;
 
     VisitasCommands visitasCmds_;
     LeadCommands leadCmds_;
@@ -31,6 +34,7 @@ private:
     PlacaCommands placaCmds_;
     CompraCommands compraCmds_;
     GerarPlanilhaCommand gerarPlanilhaCmd_;
+    TicketCommands ticketCmds_;
 
     void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
     void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
@@ -41,7 +45,8 @@ public:
         DatabaseManager& db,
         ConfigManager& configMgr,
         ReportGenerator& rg,
-        EventHandler& eventHandler
+        EventHandler& eventHandler,
+        TicketManager& tm
     );
 
     void registerCommands();
@@ -52,4 +57,5 @@ public:
     friend class SolicitacaoCommands;
     friend class PlacaCommands;
     friend class CompraCommands;
+    friend class TicketCommands;
 };

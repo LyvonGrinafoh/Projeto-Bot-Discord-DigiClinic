@@ -3,6 +3,7 @@
 #include "ConfigManager.h"
 #include "ReportGenerator.h"
 #include "EventHandler.h"
+#include "TicketManager.h"
 #include "Utils.h"
 #include <string>
 #include <vector>
@@ -12,19 +13,22 @@ CommandHandler::CommandHandler(
     DatabaseManager& db,
     ConfigManager& configMgr,
     ReportGenerator& rg,
-    EventHandler& eventHandler
+    EventHandler& eventHandler,
+    TicketManager& tm
 ) :
     bot_(bot),
     db_(db),
     configManager_(configMgr),
     reportGenerator_(rg),
     eventHandler_(eventHandler),
+    ticketManager_(tm),
     visitasCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
     leadCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
     solicitacaoCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
     placaCmds_(bot, configManager_.getConfig(), *this),
     compraCmds_(bot, db, configManager_.getConfig(), *this),
-    gerarPlanilhaCmd_(reportGenerator_)
+    gerarPlanilhaCmd_(reportGenerator_),
+    ticketCmds_(bot, tm, configManager_.getConfig(), *this)
 {
 }
 
@@ -38,6 +42,7 @@ void CommandHandler::registerCommands() {
         PlacaCommands::addCommandDefinitions(command_list, bot_.me.id);
         CompraCommands::addCommandDefinitions(command_list, bot_.me.id);
         GerarPlanilhaCommand::addCommandDefinitions(command_list, bot_.me.id);
+        TicketCommands::addCommandDefinitions(command_list, bot_.me.id);
         bot_.guild_bulk_command_create(command_list, config_.server_id);
         Utils::log_to_file("Comandos slash registrados/atualizados para o servidor ID: " + std::to_string(config_.server_id));
     }
@@ -65,6 +70,8 @@ void CommandHandler::handleInteraction(const dpp::slashcommand_t& event) {
         else if (command_name == "finalizar_placa") { placaCmds_.handle_finalizar_placa(event); }
         else if (command_name == "adicionar_compra") { compraCmds_.handle_adicionar_compra(event); }
         else if (command_name == "gerar_planilha") { gerarPlanilhaCmd_.handle_gerar_planilha(event); }
+        else if (command_name == "chamar") { ticketCmds_.handle_chamar(event); }
+        else if (command_name == "finalizar_ticket") { ticketCmds_.handle_finalizar_ticket(event); }
         else { event.reply(dpp::message("Erro interno: O comando '/" + command_name + "' não foi reconhecido pelo handler.").set_flags(dpp::m_ephemeral)); Utils::log_to_file("AVISO: Comando nao roteado recebido: /" + command_name); }
     }
     catch (const std::exception& e) { try { event.reply(dpp::message("❌ Ocorreu um erro inesperado ao processar o comando: " + std::string(e.what())).set_flags(dpp::m_ephemeral)); } catch (...) {} Utils::log_to_file("ERRO CRITICO no handleInteraction para /" + command_name + ": " + e.what()); }
@@ -76,8 +83,9 @@ void CommandHandler::replyAndDelete(const dpp::slashcommand_t& event, const dpp:
     std::string interaction_token = event.command.token; dpp::slashcommand_t event_copy = event;
     event.reply(msg, [this, event_copy, delay_seconds](const dpp::confirmation_callback_t& cb) {
         if (!cb.is_error()) {
-            bot_.start_timer([event_copy](dpp::timer timer_handle) mutable {
+            bot_.start_timer([this, event_copy](dpp::timer timer_handle) mutable {
                 event_copy.delete_original_response([](const dpp::confirmation_callback_t& delete_cb) { if (delete_cb.is_error() && delete_cb.get_error().code != 10062) {} });
+                bot_.stop_timer(timer_handle);
                 }, delay_seconds);
         }
         else { Utils::log_to_file("Falha ao enviar reply (deleção não agendada): " + cb.get_error().message); }
@@ -89,8 +97,9 @@ void CommandHandler::editAndDelete(const dpp::slashcommand_t& event, const dpp::
     std::string interaction_token = event.command.token; dpp::slashcommand_t event_copy = event;
     event.edit_original_response(msg, [this, event_copy, delay_seconds](const dpp::confirmation_callback_t& cb) {
         if (!cb.is_error()) {
-            bot_.start_timer([event_copy](dpp::timer timer_handle) mutable {
+            bot_.start_timer([this, event_copy](dpp::timer timer_handle) mutable {
                 event_copy.delete_original_response([](const dpp::confirmation_callback_t& delete_cb) { if (delete_cb.is_error() && delete_cb.get_error().code != 10062) {} });
+                bot_.stop_timer(timer_handle);
                 }, delay_seconds);
         }
         else { Utils::log_to_file("Falha ao editar resposta original (deleção não agendada): " + cb.get_error().message); }

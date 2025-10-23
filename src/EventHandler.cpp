@@ -1,5 +1,6 @@
 ﻿#include "EventHandler.h"
 #include "ConfigManager.h"
+#include "TicketManager.h"
 #include "Utils.h"
 #include <iostream>
 #include <algorithm>
@@ -10,8 +11,8 @@
 
 dpp::embed generatePageEmbed(const PaginationState& state);
 
-EventHandler::EventHandler(dpp::cluster& bot, ConfigManager& configMgr) :
-    bot_(bot), configManager_(configMgr) {
+EventHandler::EventHandler(dpp::cluster& bot, ConfigManager& configMgr, TicketManager& tm) :
+    bot_(bot), configManager_(configMgr), ticketManager_(tm) {
 }
 
 void EventHandler::addPaginationState(dpp::snowflake messageId, PaginationState state) {
@@ -35,7 +36,6 @@ void EventHandler::removePaginationState(dpp::snowflake messageId) {
             Utils::log_to_file("Estado de paginação removido para a mensagem ID: " + std::to_string(messageId));
         }
     }
-
     if (channelIdToClean != 0) {
         bot_.message_delete(messageId, channelIdToClean, [messageId](const dpp::confirmation_callback_t& cb) {
             if (cb.is_error() && cb.get_error().code != 10008) {
@@ -99,6 +99,17 @@ void EventHandler::onMessageCreate(const dpp::message_create_t& event) {
     const BotConfig& config_ = configManager_.getConfig();
     if (event.msg.author.is_bot() || event.msg.channel_id == config_.canal_logs) { return; }
 
+    auto ticket_opt = ticketManager_.findTicketByChannel(event.msg.channel_id);
+    if (ticket_opt) {
+        std::string log_line = "[" + Utils::format_timestamp(event.msg.sent) + "] " + event.msg.author.username + ": " + event.msg.content;
+        if (!event.msg.attachments.empty()) {
+            for (const auto& att : event.msg.attachments) {
+                log_line += " [Anexo: " + att.url + "]";
+            }
+        }
+        ticketManager_.appendToLog(event.msg.channel_id, log_line);
+    }
+
     if (event.msg.channel_id == config_.canal_sugestoes || event.msg.channel_id == config_.canal_bugs) {
         if (event.msg.content.empty()) { return; }
         bool is_sugestao = (event.msg.channel_id == config_.canal_sugestoes);
@@ -118,7 +129,11 @@ void EventHandler::onMessageCreate(const dpp::message_create_t& event) {
 
     dpp::channel* c = dpp::find_channel(event.msg.channel_id); std::string channel_name = c ? c->name : std::to_string(event.msg.channel_id); std::string log_message = "`[" + Utils::format_timestamp(event.msg.sent) + "]` `(#" + channel_name + ")` `" + event.msg.author.username + "` `(" + std::to_string(event.msg.author.id) + ")`: " + event.msg.content;
     if (!event.msg.attachments.empty()) { for (const auto& att : event.msg.attachments) { log_message += " [Anexo: " + att.url + "]"; } }
-    bot_.message_create(dpp::message(config_.canal_logs, log_message));
+
+    if (!ticket_opt) {
+        bot_.message_create(dpp::message(config_.canal_logs, log_message));
+    }
+
     dpp::snowflake channel_id = event.msg.channel_id;
     auto is_in_channel_list = [&](const std::vector<dpp::snowflake>& list) { return std::find(list.begin(), list.end(), channel_id) != list.end(); };
 

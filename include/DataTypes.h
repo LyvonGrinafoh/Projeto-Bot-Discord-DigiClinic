@@ -85,8 +85,8 @@ struct Compra {
     std::string data_solicitacao;
 };
 
-    void to_json(json& j, const Compra& c);
-    void from_json(const json& j, Compra& c);
+void to_json(json& j, const Compra& c);
+void from_json(const json& j, Compra& c);
 
 struct Visita {
     uint64_t id = 0;
@@ -104,8 +104,20 @@ struct Visita {
 void to_json(json& j, const Visita& v);
 void from_json(const json& j, Visita& v);
 
+struct Ticket {
+    uint64_t ticket_id = 0;
+    dpp::snowflake channel_id = 0;
+    dpp::snowflake user_a_id = 0;
+    dpp::snowflake user_b_id = 0;
+};
+
+void to_json(json& j, const Ticket& t);
+void from_json(const json& j, Ticket& t);
+
+
 const std::string DATABASE_FILE = "database.json";
 const std::string LEADS_DATABASE_FILE = "leads_database.json";
 const std::string COMPRAS_DATABASE_FILE = "compras_database.json";
 const std::string VISITAS_DATABASE_FILE = "visitas_database.json";
+const std::string TICKETS_DATABASE_FILE = "tickets.json";
 const std::string LOG_FILE = "bot_log.txt";

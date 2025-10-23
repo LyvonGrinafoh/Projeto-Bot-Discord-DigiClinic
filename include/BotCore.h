@@ -3,16 +3,19 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <windows.h>
 #include "ConfigManager.h"
 #include "DatabaseManager.h"
 #include "CommandHandler.h"
 #include "EventHandler.h"
 #include "ReportGenerator.h"
+#include "TicketManager.h"
 
 class BotCore {
 private:
     ConfigManager configManager_;
     DatabaseManager databaseManager_;
+    TicketManager ticketManager_;
     dpp::cluster bot_;
     ReportGenerator reportGenerator_;
     std::unique_ptr<EventHandler> eventHandlerPtr_;
@@ -25,6 +28,7 @@ private:
     void enviarLembretes();
     static dpp::cluster* static_bot_ptr;
     static void consoleInputLoop(dpp::cluster* bot_cluster_ptr, std::atomic<bool>& running_flag);
+    static BOOL WINAPI ConsoleHandler(DWORD fdwCtrlType);
 
 public:
     BotCore();

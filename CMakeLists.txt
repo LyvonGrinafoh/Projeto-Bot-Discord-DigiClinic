@@ -37,12 +37,14 @@ add_executable(${PROJECT_NAME}
     src/EventHandler.cpp
     src/ReportGenerator.cpp
     src/Utils.cpp
+    src/TicketManager.cpp
     src/commands/VisitasCommands.cpp
     src/commands/LeadCommands.cpp
     src/commands/SolicitacaoCommands.cpp
     src/commands/PlacaCommands.cpp
     src/commands/CompraCommands.cpp
     src/commands/GerarPlanilhaCommand.cpp
+    src/commands/TicketCommands.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
