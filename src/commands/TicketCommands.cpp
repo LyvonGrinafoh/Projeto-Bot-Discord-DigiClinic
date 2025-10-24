@@ -27,75 +27,116 @@ void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
     }
 
     event.thinking(true);
+    dpp::slashcommand_t event_copy = event; // Copia para usar nas lambdas
 
-    Ticket new_ticket_data = ticketManager_.createTicket(author.id, target_user.id, 0);
-    std::string channel_name = "ticket-" + std::to_string(new_ticket_data.ticket_id);
+    try {
+        uint64_t temp_id = Utils::gerar_codigo();
+        std::string channel_name_temp = "ticket-" + std::to_string(temp_id);
 
-    dpp::channel ticket_channel;
-    ticket_channel.set_name(channel_name);
-    ticket_channel.set_guild_id(event.command.guild_id);
+        dpp::channel ticket_channel;
+        ticket_channel.set_name(channel_name_temp);
+        ticket_channel.set_guild_id(event.command.guild_id);
 
-    std::vector<dpp::permission_overwrite> overwrites;
+        std::vector<dpp::permission_overwrite> overwrites;
 
+        dpp::permission_overwrite everyone_deny;
+        everyone_deny.id = event.command.guild_id;
+        everyone_deny.type = dpp::ot_role;
+        everyone_deny.allow = 0;
+        everyone_deny.deny = dpp::p_view_channel;
+        overwrites.push_back(everyone_deny);
 
-    dpp::permission_overwrite everyone_deny;
-    everyone_deny.id = event.command.guild_id;
-    everyone_deny.type = dpp::ot_role;
-    everyone_deny.allow = 0;
-    everyone_deny.deny = dpp::p_view_channel;
-    overwrites.push_back(everyone_deny);
+        dpp::permission_overwrite author_allow;
+        author_allow.id = author.id;
+        author_allow.type = dpp::ot_member;
+        author_allow.allow = dpp::p_view_channel | dpp::p_send_messages | dpp::p_attach_files | dpp::p_embed_links | dpp::p_read_message_history;
+        author_allow.deny = 0;
+        overwrites.push_back(author_allow);
 
-    dpp::permission_overwrite author_allow;
-    author_allow.id = author.id;
-    author_allow.type = dpp::ot_member;
-    author_allow.allow = dpp::p_view_channel | dpp::p_send_messages | dpp::p_attach_files | dpp::p_embed_links | dpp::p_read_message_history;
-    author_allow.deny = 0;
-    overwrites.push_back(author_allow);
+        dpp::permission_overwrite target_allow;
+        target_allow.id = target_user.id;
+        target_allow.type = dpp::ot_member;
+        target_allow.allow = dpp::p_view_channel | dpp::p_send_messages | dpp::p_attach_files | dpp::p_embed_links | dpp::p_read_message_history;
+        target_allow.deny = 0;
+        overwrites.push_back(target_allow);
 
-    dpp::permission_overwrite target_allow;
-    target_allow.id = target_user.id;
-    target_allow.type = dpp::ot_member;
-    target_allow.allow = dpp::p_view_channel | dpp::p_send_messages | dpp::p_attach_files | dpp::p_embed_links | dpp::p_read_message_history;
-    target_allow.deny = 0;
-    overwrites.push_back(target_allow);
+        dpp::permission_overwrite bot_allow;
+        bot_allow.id = bot_.me.id;
+        bot_allow.type = dpp::ot_member;
+        bot_allow.allow = dpp::p_view_channel | dpp::p_send_messages | dpp::p_embed_links | dpp::p_read_message_history | dpp::p_manage_messages | dpp::p_manage_channels;
+        bot_allow.deny = 0;
+        overwrites.push_back(bot_allow);
 
-    dpp::permission_overwrite bot_allow;
-    bot_allow.id = bot_.me.id;
-    bot_allow.type = dpp::ot_member;
-    bot_allow.allow = dpp::p_view_channel | dpp::p_send_messages | dpp::p_embed_links | dpp::p_read_message_history | dpp::p_manage_messages | dpp::p_manage_channels;
-    bot_allow.deny = 0;
-    overwrites.push_back(bot_allow);
+        ticket_channel.permission_overwrites = overwrites;
 
-    ticket_channel.permission_overwrites = overwrites;
+        // Tentamos criar o canal
+        bot_.channel_create(ticket_channel, [this, event_copy, author, target_user](const dpp::confirmation_callback_t& cb) {
 
-    bot_.channel_create(ticket_channel, [this, event, new_ticket_data, author, target_user](const dpp::confirmation_callback_t& cb) {
-        if (cb.is_error()) {
-            Utils::log_to_file("ERRO: Falha ao criar canal do ticket: " + cb.get_error().message);
-            event.edit_original_response(dpp::message("❌ Falha ao criar o canal do ticket."));
-            ticketManager_.removeTicket(new_ticket_data.ticket_id);
-            ticketManager_.getAndRemoveLog(0);
-            return;
-        }
+            // Se a criação do canal falhar
+            if (cb.is_error()) {
+                Utils::log_to_file("ERRO: Falha ao criar canal do ticket (passo 1): " + cb.get_error().message);
+                event_copy.edit_original_response(dpp::message("❌ Falha ao criar o canal do ticket."));
+                return;
+            }
 
-        dpp::channel new_channel = std::get<dpp::channel>(cb.value);
-        Ticket ticket_com_canal = new_ticket_data;
-        ticket_com_canal.channel_id = new_channel.id;
+            // --- CORREÇÃO: ADICIONANDO TRY/CATCH DENTRO DA LAMBDA ---
+            // Isso vai impedir o 'Uncaught exception'
+            try {
+                // Se a criação do canal der certo
+                dpp::channel new_channel = std::get<dpp::channel>(cb.value);
 
-        ticketManager_.removeTicket(new_ticket_data.ticket_id);
-        ticketManager_.createTicket(author.id, target_user.id, new_channel.id);
+                // ESSA LINHA CAUSA O DEADLOCK:
+                Ticket ticket_real = ticketManager_.createTicket(author.id, target_user.id, new_channel.id);
 
-        dpp::embed embed;
-        embed.set_color(dpp::colors::green).set_title("✅ Ticket Criado: #" + std::to_string(ticket_com_canal.ticket_id));
-        embed.set_description("Canal privado <#" + std::to_string(new_channel.id) + "> criado para a conversa entre " + author.get_mention() + " e " + target_user.get_mention() + ".\n\nUse `/finalizar_ticket " + std::to_string(ticket_com_canal.ticket_id) + "` dentro daquele canal para encerrar.");
+                // Renomeamos o canal para usar o ID REAL do ticket
+                dpp::channel canal_para_renomear = new_channel;
+                canal_para_renomear.set_name("ticket-" + std::to_string(ticket_real.ticket_id));
 
-        cmdHandler_.editAndDelete(event, dpp::message().add_embed(embed));
+                bot_.channel_edit(canal_para_renomear, [this, event_copy, ticket_real, new_channel, author, target_user](const dpp::confirmation_callback_t& edit_cb) {
 
-        dpp::embed ticket_embed;
-        ticket_embed.set_color(dpp::colors::sti_blue).set_title("Ticket #" + std::to_string(ticket_com_canal.ticket_id) + " Iniciado");
-        ticket_embed.set_description(author.get_mention() + " iniciou uma conversa com " + target_user.get_mention() + ".\n\nAmbos podem usar `/finalizar_ticket " + std::to_string(ticket_com_canal.ticket_id) + "` aqui para fechar e arquivar este ticket.");
-        bot_.message_create(dpp::message(new_channel.id, ticket_embed));
-        });
+                    if (edit_cb.is_error()) {
+                        Utils::log_to_file("AVISO: Falha ao *renomear* o canal (ticket-" + std::to_string(ticket_real.ticket_id) + "): " + edit_cb.get_error().message);
+                    }
+
+                    dpp::embed embed;
+                    embed.set_color(dpp::colors::green).set_title("✅ Ticket Criado: #" + std::to_string(ticket_real.ticket_id));
+                    embed.set_description("Canal privado <#" + std::to_string(new_channel.id) + "> criado para a conversa entre " + author.get_mention() + " e " + target_user.get_mention() + ".\n\nUse `/finalizar_ticket " + std::to_string(ticket_real.ticket_id) + "` dentro daquele canal para encerrar.");
+
+                    event_copy.edit_original_response(dpp::message().add_embed(embed));
+
+                    dpp::embed ticket_embed;
+                    ticket_embed.set_color(dpp::colors::sti_blue).set_title("Ticket #" + std::to_string(ticket_real.ticket_id) + " Iniciado");
+                    ticket_embed.set_description(author.get_mention() + " iniciou uma conversa com " + target_user.get_mention() + ".\n\nAmbos podem usar `/finalizar_ticket " + std::to_string(ticket_real.ticket_id) + "` aqui para fechar e arquivar este ticket.");
+                    bot_.message_create(dpp::message(new_channel.id, ticket_embed));
+                    });
+
+            }
+            // Pegando o erro de DEADLOCK aqui
+            catch (const std::exception& e) {
+                std::string erro_msg = e.what();
+                Utils::log_to_file("ERRO CRITICO (STD) DENTRO DA LAMBDA: " + erro_msg);
+                // Isso vai mostrar "resource deadlock would occur" no Discord
+                event_copy.edit_original_response(dpp::message("❌ Ocorreu um erro interno grave (lambda): " + erro_msg));
+            }
+            catch (...) {
+                // Pega qualquer outro erro
+                Utils::log_to_file("ERRO CRITICO (DESCONHECIDO) DENTRO DA LAMBDA");
+                event_copy.edit_original_response(dpp::message("❌ Ocorreu um erro interno desconhecido (lambda)."));
+            }
+            });
+    }
+    // O 'catch' de fora
+    catch (const std::exception& e) {
+        std::string erro_msg = e.what();
+        Utils::log_to_file("ERRO CRITICO (STD) em handle_chamar (try/catch): " + erro_msg);
+        event_copy.edit_original_response(dpp::message("❌ Ocorreu um erro interno grave: " + erro_msg));
+    }
+    catch (...) {
+        Utils::log_to_file("ERRO CRITICO (DESCONHECIDO) em handle_chamar (try/catch)");
+        event_copy.edit_original_response(dpp::message("❌ Ocorreu um erro interno desconhecido."));
+    }
 }
+
 
 void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
     int64_t ticket_id_int = std::get<int64_t>(event.get_parameter("codigo"));

@@ -54,7 +54,7 @@ bool TicketManager::loadTickets() {
 }
 
 bool TicketManager::saveTickets() {
-    std::lock_guard<std::mutex> lock(ticket_mutex_);
+
     try {
         std::ofstream file(TICKETS_DATABASE_FILE);
         if (!file.is_open()) {
@@ -89,6 +89,7 @@ Ticket TicketManager::createTicket(dpp::snowflake user_a, dpp::snowflake user_b,
     new_ticket.user_b_id = user_b;
 
     tickets_[new_ticket.ticket_id] = new_ticket;
+
     saveTickets();
 
     ticket_logs_[channel_id] = "Log de conversa do Ticket #" + std::to_string(new_ticket.ticket_id) + " - Criado em " + Utils::format_timestamp(std::time(nullptr)) + "\n";
@@ -101,6 +102,7 @@ bool TicketManager::removeTicket(uint64_t ticket_id) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
     if (tickets_.count(ticket_id) > 0) {
         tickets_.erase(ticket_id);
+
         return saveTickets();
     }
     return false;
