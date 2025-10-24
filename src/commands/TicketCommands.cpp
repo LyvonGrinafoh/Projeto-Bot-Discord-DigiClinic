@@ -27,7 +27,7 @@ void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
     }
 
     event.thinking(true);
-    dpp::slashcommand_t event_copy = event; // Copia para usar nas lambdas
+    dpp::slashcommand_t event_copy = event;
 
     try {
         uint64_t temp_id = Utils::gerar_codigo();
@@ -69,26 +69,19 @@ void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
 
         ticket_channel.permission_overwrites = overwrites;
 
-        // Tentamos criar o canal
         bot_.channel_create(ticket_channel, [this, event_copy, author, target_user](const dpp::confirmation_callback_t& cb) {
 
-            // Se a criação do canal falhar
             if (cb.is_error()) {
                 Utils::log_to_file("ERRO: Falha ao criar canal do ticket (passo 1): " + cb.get_error().message);
                 event_copy.edit_original_response(dpp::message("❌ Falha ao criar o canal do ticket."));
                 return;
             }
 
-            // --- CORREÇÃO: ADICIONANDO TRY/CATCH DENTRO DA LAMBDA ---
-            // Isso vai impedir o 'Uncaught exception'
             try {
-                // Se a criação do canal der certo
                 dpp::channel new_channel = std::get<dpp::channel>(cb.value);
 
-                // ESSA LINHA CAUSA O DEADLOCK:
                 Ticket ticket_real = ticketManager_.createTicket(author.id, target_user.id, new_channel.id);
 
-                // Renomeamos o canal para usar o ID REAL do ticket
                 dpp::channel canal_para_renomear = new_channel;
                 canal_para_renomear.set_name("ticket-" + std::to_string(ticket_real.ticket_id));
 
@@ -111,21 +104,17 @@ void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
                     });
 
             }
-            // Pegando o erro de DEADLOCK aqui
             catch (const std::exception& e) {
                 std::string erro_msg = e.what();
                 Utils::log_to_file("ERRO CRITICO (STD) DENTRO DA LAMBDA: " + erro_msg);
-                // Isso vai mostrar "resource deadlock would occur" no Discord
                 event_copy.edit_original_response(dpp::message("❌ Ocorreu um erro interno grave (lambda): " + erro_msg));
             }
             catch (...) {
-                // Pega qualquer outro erro
                 Utils::log_to_file("ERRO CRITICO (DESCONHECIDO) DENTRO DA LAMBDA");
                 event_copy.edit_original_response(dpp::message("❌ Ocorreu um erro interno desconhecido (lambda)."));
             }
             });
     }
-    // O 'catch' de fora
     catch (const std::exception& e) {
         std::string erro_msg = e.what();
         Utils::log_to_file("ERRO CRITICO (STD) em handle_chamar (try/catch): " + erro_msg);

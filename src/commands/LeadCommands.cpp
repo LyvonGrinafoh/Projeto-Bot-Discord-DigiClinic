@@ -39,7 +39,6 @@ void LeadCommands::handle_adicionar_lead(const dpp::slashcommand_t& event) {
 
     if (db_.addOrUpdateLead(novo_lead)) {
         dpp::embed embed = dpp::embed().set_color(dpp::colors::green).set_title("✅ Novo Lead Adicionado").add_field("Nome", novo_lead.nome, true).add_field("Origem", novo_lead.origem, true).add_field("Contato", novo_lead.contato.empty() ? "Nao informado" : novo_lead.contato, true).set_footer(dpp::embed_footer().set_text("Codigo do Lead: " + std::to_string(novo_lead.id)));
-        // CORRIGIDO AQUI: Adicionado ", 60"
         cmdHandler_.replyAndDelete(event, dpp::message().add_embed(embed), 60);
     }
     else { event.reply(dpp::message("❌ Erro ao salvar o novo lead no banco de dados.").set_flags(dpp::m_ephemeral)); }
@@ -81,7 +80,6 @@ void LeadCommands::handle_modificar_lead(const dpp::slashcommand_t& event) {
 
                     lead_a_modificar.print_final_conversa = local_path;
                     if (db_.saveLeads()) {
-                        // CORRIGIDO AQUI: Adicionado ", 60"
                         cmdHandler_.replyAndDelete(event, dpp::message("✅ Lead `" + std::to_string(lead_a_modificar.id) + "` modificado com sucesso e print salvo localmente!"), 60);
                     }
                     else {
@@ -96,7 +94,6 @@ void LeadCommands::handle_modificar_lead(const dpp::slashcommand_t& event) {
         }
 
         if (modificado) {
-            // CORRIGIDO AQUI: Adicionado ", 60"
             if (db_.saveLeads()) { cmdHandler_.replyAndDelete(event, dpp::message("✅ Lead `" + std::to_string(codigo) + "` modificado com sucesso!"), 60); }
             else { event.reply(dpp::message("❌ Erro ao salvar as alterações do lead.").set_flags(dpp::m_ephemeral)); }
         }
@@ -203,7 +200,6 @@ void LeadCommands::handle_deletar_lead(const dpp::slashcommand_t& event) {
     std::optional<Lead> lead_opt = db_.getLead(codigo);
     if (lead_opt) {
         std::string nome_do_lead = lead_opt->nome;
-        // CORRIGIDO AQUI: Adicionado ", 60"
         if (db_.removeLead(codigo)) { cmdHandler_.replyAndDelete(event, dpp::message("✅ O lead '" + nome_do_lead + "' (codigo `" + std::to_string(codigo) + "`) foi deletado com sucesso."), 60); }
         else { event.reply(dpp::message("❌ Erro ao deletar o lead (não foi possível salvar o banco de dados após remoção).").set_flags(dpp::m_ephemeral)); }
     }
