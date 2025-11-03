@@ -25,7 +25,7 @@ CommandHandler::CommandHandler(
     visitasCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
     leadCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
     solicitacaoCmds_(bot, db, configManager_.getConfig(), *this, eventHandler),
-    placaCmds_(bot, configManager_.getConfig(), *this),
+    placaCmds_(bot, db_, configManager_.getConfig(), *this, eventHandler_),
     compraCmds_(bot, db, configManager_.getConfig(), *this),
     gerarPlanilhaCmd_(reportGenerator_),
     ticketCmds_(bot, tm, configManager_.getConfig(), *this)
@@ -42,7 +42,7 @@ void CommandHandler::registerCommands() {
         PlacaCommands::addCommandDefinitions(command_list, bot_.me.id);
         CompraCommands::addCommandDefinitions(command_list, bot_.me.id);
         GerarPlanilhaCommand::addCommandDefinitions(command_list, bot_.me.id);
-        TicketCommands::addCommandDefinitions(command_list, bot_.me.id);
+        TicketCommands::addCommandDefinitions(command_list, bot_.me.id, config_);
         bot_.guild_bulk_command_create(command_list, config_.server_id);
         Utils::log_to_file("Comandos slash registrados/atualizados para o servidor ID: " + std::to_string(config_.server_id));
     }
@@ -53,6 +53,7 @@ void CommandHandler::handleInteraction(const dpp::slashcommand_t& event) {
     try {
         if (command_name == "visitas") { visitasCmds_.handle_visitas(event); }
         else if (command_name == "cancelar_visita") { visitasCmds_.handle_cancelar_visita(event); }
+        else if (command_name == "finalizar_visita") { visitasCmds_.handle_finalizar_visita(event); }
         else if (command_name == "lista_visitas") { visitasCmds_.handle_lista_visitas(event); }
         else if (command_name == "modificar_visita") { visitasCmds_.handle_modificar_visita(event); }
         else if (command_name == "adicionar_lead") { leadCmds_.handle_adicionar_lead(event); }
@@ -63,15 +64,18 @@ void CommandHandler::handleInteraction(const dpp::slashcommand_t& event) {
         else if (command_name == "deletar_lead") { leadCmds_.handle_deletar_lead(event); }
         else if (command_name == "demanda" || command_name == "pedido") { solicitacaoCmds_.handle_demanda_pedido(event); }
         else if (command_name == "finalizar_demanda" || command_name == "finalizar_pedido" || command_name == "cancelar_pedido" || command_name == "finalizar_lembrete") { solicitacaoCmds_.handle_finalizar_solicitacao(event); }
+        else if (command_name == "cancelar_demanda") { solicitacaoCmds_.handle_cancelar_demanda(event); }
         else if (command_name == "limpar_demandas") { solicitacaoCmds_.handle_limpar_demandas(event); }
         else if (command_name == "lista_demandas") { solicitacaoCmds_.handle_lista_demandas(event); }
         else if (command_name == "lembrete") { solicitacaoCmds_.handle_lembrete(event); }
         else if (command_name == "placa") { placaCmds_.handle_placa(event); }
         else if (command_name == "finalizar_placa") { placaCmds_.handle_finalizar_placa(event); }
+        else if (command_name == "lista_placas") { placaCmds_.handle_lista_placas(event); }
         else if (command_name == "adicionar_compra") { compraCmds_.handle_adicionar_compra(event); }
         else if (command_name == "gerar_planilha") { gerarPlanilhaCmd_.handle_gerar_planilha(event); }
         else if (command_name == "chamar") { ticketCmds_.handle_chamar(event); }
         else if (command_name == "finalizar_ticket") { ticketCmds_.handle_finalizar_ticket(event); }
+        else if (command_name == "ver_log") { ticketCmds_.handle_ver_log(event); }
         else { event.reply(dpp::message("Erro interno: O comando '/" + command_name + "' não foi reconhecido pelo handler.").set_flags(dpp::m_ephemeral)); Utils::log_to_file("AVISO: Comando nao roteado recebido: /" + command_name); }
     }
     catch (const std::exception& e) { try { event.reply(dpp::message("❌ Ocorreu um erro inesperado ao processar o comando: " + std::string(e.what())).set_flags(dpp::m_ephemeral)); } catch (...) {} Utils::log_to_file("ERRO CRITICO no handleInteraction para /" + command_name + ": " + e.what()); }

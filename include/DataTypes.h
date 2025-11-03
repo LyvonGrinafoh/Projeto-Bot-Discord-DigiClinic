@@ -40,6 +40,7 @@ struct Solicitacao {
     std::string prazo;
     std::string nome_usuario_responsavel;
     TipoSolicitacao tipo;
+    std::string status = "pendente";
 };
 
 void to_json(json& j, const Solicitacao& s);
@@ -99,20 +100,38 @@ struct Visita {
     std::string unidade;
     std::string telefone;
     std::string observacoes;
+    std::string status = "agendada";
+    std::string relatorio_visita;
 };
 
 void to_json(json& j, const Visita& v);
 void from_json(const json& j, Visita& v);
 
+// --- STRUCT TICKET ATUALIZADA ---
 struct Ticket {
     uint64_t ticket_id = 0;
     dpp::snowflake channel_id = 0;
     dpp::snowflake user_a_id = 0;
     dpp::snowflake user_b_id = 0;
+    std::string status = "aberto"; // "aberto" ou "fechado"
+    std::string log_filename;      // Caminho para o arquivo .txt
 };
 
 void to_json(json& j, const Ticket& t);
 void from_json(const json& j, Ticket& t);
+
+struct Placa {
+    uint64_t id = 0;
+    std::string doutor;
+    dpp::snowflake solicitado_por_id = 0;
+    std::string solicitado_por_nome;
+    std::string imagem_referencia_url;
+    std::string arte_final_url;
+    std::string status = "pendente";
+};
+
+void to_json(json& j, const Placa& p);
+void from_json(const json& j, Placa& p);
 
 
 const std::string DATABASE_FILE = "database.json";
@@ -120,4 +139,6 @@ const std::string LEADS_DATABASE_FILE = "leads_database.json";
 const std::string COMPRAS_DATABASE_FILE = "compras_database.json";
 const std::string VISITAS_DATABASE_FILE = "visitas_database.json";
 const std::string TICKETS_DATABASE_FILE = "tickets.json";
+const std::string PLACAS_DATABASE_FILE = "placas.json";
 const std::string LOG_FILE = "bot_log.txt";
+// Não precisamos de um novo arquivo, vamos usar o 'tickets.json' mesmo.

@@ -101,13 +101,7 @@ void EventHandler::onMessageCreate(const dpp::message_create_t& event) {
 
     auto ticket_opt = ticketManager_.findTicketByChannel(event.msg.channel_id);
     if (ticket_opt) {
-        std::string log_line = "[" + Utils::format_timestamp(event.msg.sent) + "] " + event.msg.author.username + ": " + event.msg.content;
-        if (!event.msg.attachments.empty()) {
-            for (const auto& att : event.msg.attachments) {
-                log_line += " [Anexo: " + att.url + "]";
-            }
-        }
-        ticketManager_.appendToLog(event.msg.channel_id, log_line);
+        ticketManager_.appendToLog(event.msg);
     }
 
     if (event.msg.channel_id == config_.canal_sugestoes || event.msg.channel_id == config_.canal_bugs) {
@@ -164,24 +158,63 @@ dpp::embed generatePageEmbed(const PaginationState& state) {
     int startIdx = (state.currentPage - 1) * state.itemsPerPage;
     int endIdx = std::min(startIdx + state.itemsPerPage, totalItems);
     std::string description; std::string title;
+
     if (state.listType == "leads") { title = "📋 Lista de Leads"; }
-    else if (state.listType == "visitas") { title = "📅 Visitas Agendadas"; }
-    else if (state.listType == "demandas") { title = "📋 Solicitações Pendentes"; }
+    else if (state.listType == "visitas") { title = "📅 Lista de Visitas"; }
+    else if (state.listType == "demandas") { title = "📋 Lista de Solicitações"; }
+    else if (state.listType == "placas") { title = "🖼️ Lista de Placas"; }
     else { title = "Lista Paginada"; }
+
     embed.set_title(title);
+
     if (startIdx >= totalItems) { description = "Nenhum item nesta página."; }
     else {
         for (int i = startIdx; i < endIdx; ++i) {
             std::visit([&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                if constexpr (std::is_same_v<T, Lead>) { description += "**Nome:** " + arg.nome + "\n"; description += "**Codigo:** `" + std::to_string(arg.id) + "`\n"; description += "**Data Contato:** " + arg.data_contato + "\n"; description += "**Contato:** " + (arg.contato.empty() ? "N/A" : arg.contato) + "\n"; description += "**Status:** " + arg.status_conversa + "\n"; }
-                else if constexpr (std::is_same_v<T, Visita>) { bool cancelada = (arg.observacoes.find("Visita Cancelada") != std::string::npos); if (cancelada) description += "**[CANCELADA]** "; description += "**Dr(a):** " + arg.doutor + "\n"; description += "**Código:** `" + std::to_string(arg.id) + "`\n"; description += "**Data:** " + arg.data + " às " + arg.horario + "\n"; description += "**Unidade:** " + arg.unidade + "\n"; }
-                else if constexpr (std::is_same_v<T, Solicitacao>) { std::string tipo_str; switch (arg.tipo) { case DEMANDA: tipo_str = "Demanda"; break; case PEDIDO: tipo_str = "Pedido"; break; case LEMBRETE:tipo_str = "Lembrete"; break; } description += "**" + tipo_str + "**\n"; description += "**Código:** `" + std::to_string(arg.id) + "`\n"; description += "**Descrição:** " + arg.texto + "\n"; if (arg.tipo != PEDIDO) { description += "**Prazo:** " + arg.prazo + "\n"; } }
+                if constexpr (std::is_same_v<T, Lead>) {
+                    description += "**Nome:** " + arg.nome + "\n";
+                    description += "**Codigo:** `" + std::to_string(arg.id) + "`\n";
+                    description += "**Data Contato:** " + arg.data_contato + "\n";
+                    description += "**Contato:** " + (arg.contato.empty() ? "N/A" : arg.contato) + "\n";
+                    description += "**Status:** " + arg.status_conversa + "\n";
+                }
+                else if constexpr (std::is_same_v<T, Visita>) {
+                    description += "**Dr(a):** " + arg.doutor + "\n";
+                    description += "**Código:** `" + std::to_string(arg.id) + "`\n";
+                    description += "**Status:** " + arg.status + "\n";
+                    description += "**Data:** " + arg.data + " às " + arg.horario + "\n";
+                    description += "**Unidade:** " + arg.unidade + "\n";
+                }
+                else if constexpr (std::is_same_v<T, Solicitacao>) {
+                    std::string tipo_str;
+                    switch (arg.tipo) {
+                    case DEMANDA: tipo_str = "Demanda"; break;
+                    case PEDIDO: tipo_str = "Pedido"; break;
+                    case LEMBRETE:tipo_str = "Lembrete"; break;
+                    }
+                    description += "**" + tipo_str + "**\n";
+                    description += "**Código:** `" + std::to_string(arg.id) + "`\n";
+                    description += "**Status:** " + arg.status + "\n";
+                    description += "**Descrição:** " + arg.texto + "\n";
+                    if (arg.tipo != PEDIDO) {
+                        description += "**Prazo:** " + arg.prazo + "\n";
+                    }
+                }
+                else if constexpr (std::is_same_v<T, Placa>) {
+                    description += "**Dr(a):** " + arg.doutor + "\n";
+                    description += "**Código:** `" + std::to_string(arg.id) + "`\n";
+                    description += "**Status:** " + arg.status + "\n";
+                    description += "**Solicitado por:** " + arg.solicitado_por_nome + "\n";
+                }
                 description += "--------------------\n";
                 }, state.items[i]);
         }
     }
     if (description.length() > 4000) { description = description.substr(0, 4000) + "\n... (descrição muito longa)"; }
-    embed.set_description(description); embed.set_footer(dpp::embed_footer().set_text("Página " + std::to_string(state.currentPage) + " / " + std::to_string(totalPages)));
+
+    embed.set_description(description);
+    embed.set_footer(dpp::embed_footer().set_text("Página " + std::to_string(state.currentPage) + " / " + std::to_string(totalPages)));
+
     return embed;
 }

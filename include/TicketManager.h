@@ -23,11 +23,14 @@ public:
     bool loadTickets();
 
     Ticket createTicket(dpp::snowflake user_a, dpp::snowflake user_b, dpp::snowflake channel_id);
-    bool removeTicket(uint64_t ticket_id);
+
+    bool arquivarTicket(uint64_t ticket_id, const std::string& log_filename);
 
     std::optional<Ticket> findTicketByChannel(dpp::snowflake channel_id);
+
     std::optional<Ticket> findTicketById(uint64_t ticket_id);
 
-    void appendToLog(dpp::snowflake channel_id, const std::string& message);
+    void appendToLog(const dpp::message& msg);
+
     std::string getAndRemoveLog(dpp::snowflake channel_id);
 };

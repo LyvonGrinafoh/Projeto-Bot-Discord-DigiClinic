@@ -10,7 +10,7 @@
 class ConfigManager;
 class TicketManager;
 
-using PaginatedItem = std::variant<Lead, Visita, Solicitacao>;
+using PaginatedItem = std::variant<Lead, Visita, Solicitacao, Placa>;
 
 struct PaginationState {
     dpp::snowflake channel_id;

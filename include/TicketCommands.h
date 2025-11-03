@@ -19,6 +19,7 @@ public:
 
     void handle_chamar(const dpp::slashcommand_t& event);
     void handle_finalizar_ticket(const dpp::slashcommand_t& event);
+    void handle_ver_log(const dpp::slashcommand_t& event);
 
-    static void addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id);
+    static void addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id, const BotConfig& config); // <-- Assinatura atualizada
 };

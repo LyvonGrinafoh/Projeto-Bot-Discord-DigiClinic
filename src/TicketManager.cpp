@@ -9,7 +9,9 @@ void to_json(json& j, const Ticket& t) {
         {"ticket_id", t.ticket_id},
         {"channel_id", t.channel_id},
         {"user_a_id", t.user_a_id},
-        {"user_b_id", t.user_b_id}
+        {"user_b_id", t.user_b_id},
+        {"status", t.status},
+        {"log_filename", t.log_filename}
     };
 }
 void from_json(const json& j, Ticket& t) {
@@ -17,6 +19,20 @@ void from_json(const json& j, Ticket& t) {
     j.at("channel_id").get_to(t.channel_id);
     j.at("user_a_id").get_to(t.user_a_id);
     j.at("user_b_id").get_to(t.user_b_id);
+
+    if (j.contains("status")) {
+        j.at("status").get_to(t.status);
+    }
+    else {
+        t.status = "aberto";
+    }
+
+    if (j.contains("log_filename")) {
+        j.at("log_filename").get_to(t.log_filename);
+    }
+    else {
+        t.log_filename = "";
+    }
 }
 
 TicketManager::TicketManager() : random_engine_(std::random_device{}()) {}
@@ -54,7 +70,6 @@ bool TicketManager::loadTickets() {
 }
 
 bool TicketManager::saveTickets() {
-
     try {
         std::ofstream file(TICKETS_DATABASE_FILE);
         if (!file.is_open()) {
@@ -87,6 +102,8 @@ Ticket TicketManager::createTicket(dpp::snowflake user_a, dpp::snowflake user_b,
     new_ticket.channel_id = channel_id;
     new_ticket.user_a_id = user_a;
     new_ticket.user_b_id = user_b;
+    new_ticket.status = "aberto";
+    new_ticket.log_filename = "";
 
     tickets_[new_ticket.ticket_id] = new_ticket;
 
@@ -98,11 +115,13 @@ Ticket TicketManager::createTicket(dpp::snowflake user_a, dpp::snowflake user_b,
     return new_ticket;
 }
 
-bool TicketManager::removeTicket(uint64_t ticket_id) {
+bool TicketManager::arquivarTicket(uint64_t ticket_id, const std::string& log_filename) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
-    if (tickets_.count(ticket_id) > 0) {
-        tickets_.erase(ticket_id);
 
+    auto it = tickets_.find(ticket_id);
+    if (it != tickets_.end()) {
+        it->second.status = "fechado";
+        it->second.log_filename = log_filename;
         return saveTickets();
     }
     return false;
@@ -111,7 +130,7 @@ bool TicketManager::removeTicket(uint64_t ticket_id) {
 std::optional<Ticket> TicketManager::findTicketByChannel(dpp::snowflake channel_id) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
     for (const auto& [id, ticket] : tickets_) {
-        if (ticket.channel_id == channel_id) {
+        if (ticket.channel_id == channel_id && ticket.status == "aberto") {
             return ticket;
         }
     }
@@ -127,9 +146,24 @@ std::optional<Ticket> TicketManager::findTicketById(uint64_t ticket_id) {
     return std::nullopt;
 }
 
-void TicketManager::appendToLog(dpp::snowflake channel_id, const std::string& message) {
+void TicketManager::appendToLog(const dpp::message& msg) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
-    ticket_logs_[channel_id] += message + "\n";
+
+    auto it = ticket_logs_.find(msg.channel_id);
+    if (it != ticket_logs_.end()) {
+
+        std::string log_line = "[" + Utils::format_timestamp(msg.sent) + "] ";
+        log_line += "[" + msg.author.username + " | Msg ID: " + std::to_string(msg.id) + "]: ";
+        log_line += msg.content;
+
+        if (!msg.attachments.empty()) {
+            for (const auto& att : msg.attachments) {
+                log_line += " [Anexo: " + att.url + "]";
+            }
+        }
+
+        it->second += log_line + "\n";
+    }
 }
 
 std::string TicketManager::getAndRemoveLog(dpp::snowflake channel_id) {

@@ -6,12 +6,104 @@
 #include <optional>
 
 
-void to_json(json& j, const Solicitacao& s) { j = json{ {"id", s.id}, {"id_usuario_responsavel", s.id_usuario_responsavel}, {"texto", s.texto}, {"prazo", s.prazo}, {"nome_usuario_responsavel", s.nome_usuario_responsavel}, {"tipo", s.tipo} }; }
-void from_json(const json& j, Solicitacao& s) { j.at("id").get_to(s.id); j.at("id_usuario_responsavel").get_to(s.id_usuario_responsavel); j.at("texto").get_to(s.texto); j.at("prazo").get_to(s.prazo); j.at("nome_usuario_responsavel").get_to(s.nome_usuario_responsavel); if (j.contains("tipo")) { j.at("tipo").get_to(s.tipo); } else if (j.contains("is_pedido") && j.at("is_pedido").get<bool>()) { s.tipo = PEDIDO; } else { s.tipo = DEMANDA; } }
-void to_json(json& j, const Lead& l) { j = json{ {"id", l.id}, {"origem", l.origem}, {"data_contato", l.data_contato}, {"hora_contato", l.hora_contato}, {"nome", l.nome}, {"contato", l.contato}, {"area_atuacao", l.area_atuacao}, {"conhece_formato", l.conhece_formato}, {"veio_campanha", l.veio_campanha}, {"respondido", l.respondido}, {"data_hora_resposta", l.data_hora_resposta}, {"problema_contato", l.problema_contato}, {"observacoes", l.observacoes}, {"status_conversa", l.status_conversa}, {"status_followup", l.status_followup}, {"unidade", l.unidade}, {"convidou_visita", l.convidou_visita}, {"agendou_visita", l.agendou_visita}, {"tipo_fechamento", l.tipo_fechamento}, {"teve_adicionais", l.teve_adicionais}, {"valor_fechamento", l.valor_fechamento}, {"print_final_conversa", l.print_final_conversa}, {"criado_por", l.criado_por} }; }
-void from_json(const json& j, Lead& l) { j.at("id").get_to(l.id); j.at("origem").get_to(l.origem); j.at("data_contato").get_to(l.data_contato); j.at("hora_contato").get_to(l.hora_contato); j.at("nome").get_to(l.nome); j.at("contato").get_to(l.contato); j.at("area_atuacao").get_to(l.area_atuacao); j.at("conhece_formato").get_to(l.conhece_formato); j.at("veio_campanha").get_to(l.veio_campanha); j.at("respondido").get_to(l.respondido); j.at("data_hora_resposta").get_to(l.data_hora_resposta); j.at("problema_contato").get_to(l.problema_contato); j.at("observacoes").get_to(l.observacoes); j.at("status_conversa").get_to(l.status_conversa); j.at("status_followup").get_to(l.status_followup); j.at("unidade").get_to(l.unidade); j.at("convidou_visita").get_to(l.convidou_visita); j.at("agendou_visita").get_to(l.agendou_visita); j.at("tipo_fechamento").get_to(l.tipo_fechamento); j.at("teve_adicionais").get_to(l.teve_adicionais); j.at("valor_fechamento").get_to(l.valor_fechamento); j.at("print_final_conversa").get_to(l.print_final_conversa); if (j.contains("criado_por")) { j.at("criado_por").get_to(l.criado_por); } }
+void to_json(json& j, const Solicitacao& s) {
+    j = json{
+        {"id", s.id},
+        {"id_usuario_responsavel", s.id_usuario_responsavel},
+        {"texto", s.texto},
+        {"prazo", s.prazo},
+        {"nome_usuario_responsavel", s.nome_usuario_responsavel},
+        {"tipo", s.tipo},
+        {"status", s.status}
+    };
+}
+void from_json(const json& j, Solicitacao& s) {
+    j.at("id").get_to(s.id);
+    j.at("id_usuario_responsavel").get_to(s.id_usuario_responsavel);
+    j.at("texto").get_to(s.texto);
+    j.at("prazo").get_to(s.prazo);
+    j.at("nome_usuario_responsavel").get_to(s.nome_usuario_responsavel);
+    if (j.contains("tipo")) {
+        j.at("tipo").get_to(s.tipo);
+    }
+    else if (j.contains("is_pedido") && j.at("is_pedido").get<bool>()) {
+        s.tipo = PEDIDO;
+    }
+    else {
+        s.tipo = DEMANDA;
+    }
+    if (j.contains("status")) {
+        j.at("status").get_to(s.status);
+    }
+    else {
+        s.status = "pendente";
+    }
+}
+void to_json(json& j, const Lead& l) {
+    j = json{
+        {"id", l.id},
+        {"origem", l.origem},
+        {"data_contato", l.data_contato},
+        {"hora_contato", l.hora_contato},
+        {"nome", l.nome},
+        {"contato", l.contato},
+        {"area_atuacao", l.area_atuacao},
+        {"conhece_formato", l.conhece_formato},
+        {"veio_campanha", l.veio_campanha},
+        {"respondido", l.respondido},
+        {"data_hora_resposta", l.data_hora_resposta},
+        {"problema_contato", l.problema_contato},
+        {"observacoes", l.observacoes},
+        {"status_conversa", l.status_conversa},
+        {"status_followup", l.status_followup},
+        {"unidade", l.unidade},
+        {"convidou_visita", l.convidou_visita},
+        {"agendou_visita", l.agendou_visita},
+        {"tipo_fechamento", l.tipo_fechamento},
+        {"teve_adicionais", l.teve_adicionais},
+        {"valor_fechamento", l.valor_fechamento},
+        {"print_final_conversa", l.print_final_conversa},
+        {"criado_por", l.criado_por}
+    };
+}
+void from_json(const json& j, Lead& l) {
+    j.at("id").get_to(l.id);
+    j.at("origem").get_to(l.origem);
+    j.at("data_contato").get_to(l.data_contato);
+    j.at("hora_contato").get_to(l.hora_contato);
+    j.at("nome").get_to(l.nome);
+    j.at("contato").get_to(l.contato);
+    j.at("area_atuacao").get_to(l.area_atuacao);
+    j.at("conhece_formato").get_to(l.conhece_formato);
+    j.at("veio_campanha").get_to(l.veio_campanha);
+    j.at("respondido").get_to(l.respondido);
+    j.at("data_hora_resposta").get_to(l.data_hora_resposta);
+    j.at("problema_contato").get_to(l.problema_contato);
+    j.at("observacoes").get_to(l.observacoes);
+    j.at("status_conversa").get_to(l.status_conversa);
+    j.at("status_followup").get_to(l.status_followup);
+    j.at("unidade").get_to(l.unidade);
+    j.at("convidou_visita").get_to(l.convidou_visita);
+    j.at("agendou_visita").get_to(l.agendou_visita);
+    j.at("tipo_fechamento").get_to(l.tipo_fechamento);
+    j.at("teve_adicionais").get_to(l.teve_adicionais);
+    j.at("valor_fechamento").get_to(l.valor_fechamento);
+    j.at("print_final_conversa").get_to(l.print_final_conversa);
+    if (j.contains("criado_por")) {
+        j.at("criado_por").get_to(l.criado_por);
+    }
+}
 void to_json(json& j, const Compra& c) {
-    j = json{{"id", c.id}, {"item", c.item}, {"local_compra", c.local_compra}, {"quantidade", c.quantidade}, {"observacao", c.observacao}, {"solicitado_por", c.solicitado_por}, {"data_solicitacao", c.data_solicitacao}};}
+    j = json{
+        {"id", c.id},
+        {"item", c.item},
+        {"local_compra", c.local_compra},
+        {"quantidade", c.quantidade},
+        {"observacao", c.observacao},
+        {"solicitado_por", c.solicitado_por},
+        {"data_solicitacao", c.data_solicitacao}
+    };
+}
 void from_json(const json& j, Compra& c) {
     j.at("id").get_to(c.id);
     j.at("item").get_to(c.item);
@@ -25,8 +117,82 @@ void from_json(const json& j, Compra& c) {
     j.at("solicitado_por").get_to(c.solicitado_por);
     j.at("data_solicitacao").get_to(c.data_solicitacao);
 }
-void to_json(json& j, const Visita& v) { j = json{ {"id", v.id}, {"quem_marcou_id", v.quem_marcou_id}, {"quem_marcou_nome", v.quem_marcou_nome}, {"doutor", v.doutor}, {"area", v.area}, {"data", v.data}, {"horario", v.horario}, {"unidade", v.unidade}, {"telefone", v.telefone}, {"observacoes", v.observacoes} }; }
-void from_json(const json& j, Visita& v) { j.at("id").get_to(v.id); j.at("quem_marcou_id").get_to(v.quem_marcou_id); j.at("quem_marcou_nome").get_to(v.quem_marcou_nome); j.at("doutor").get_to(v.doutor); j.at("area").get_to(v.area); j.at("data").get_to(v.data); j.at("horario").get_to(v.horario); j.at("unidade").get_to(v.unidade); j.at("telefone").get_to(v.telefone); if (j.contains("observacoes")) { j.at("observacoes").get_to(v.observacoes); } else { v.observacoes = ""; } }
+
+void to_json(json& j, const Visita& v) {
+    j = json{
+        {"id", v.id},
+        {"quem_marcou_id", v.quem_marcou_id},
+        {"quem_marcou_nome", v.quem_marcou_nome},
+        {"doutor", v.doutor},
+        {"area", v.area},
+        {"data", v.data},
+        {"horario", v.horario},
+        {"unidade", v.unidade},
+        {"telefone", v.telefone},
+        {"observacoes", v.observacoes},
+        {"status", v.status},
+        {"relatorio_visita", v.relatorio_visita}
+    };
+}
+void from_json(const json& j, Visita& v) {
+    j.at("id").get_to(v.id);
+    j.at("quem_marcou_id").get_to(v.quem_marcou_id);
+    j.at("quem_marcou_nome").get_to(v.quem_marcou_nome);
+    j.at("doutor").get_to(v.doutor);
+    j.at("area").get_to(v.area);
+    j.at("data").get_to(v.data);
+    j.at("horario").get_to(v.horario);
+    j.at("unidade").get_to(v.unidade);
+    j.at("telefone").get_to(v.telefone);
+    if (j.contains("observacoes")) {
+        j.at("observacoes").get_to(v.observacoes);
+    }
+    else {
+        v.observacoes = "";
+    }
+    if (j.contains("status")) {
+        j.at("status").get_to(v.status);
+    }
+    else {
+        if (v.observacoes.find("Visita Cancelada") != std::string::npos) {
+            v.status = "cancelada";
+        }
+        else {
+            v.status = "agendada";
+        }
+    }
+    if (j.contains("relatorio_visita")) {
+        j.at("relatorio_visita").get_to(v.relatorio_visita);
+    }
+    else {
+        v.relatorio_visita = "";
+    }
+}
+
+void to_json(json& j, const Placa& p) {
+    j = json{
+        {"id", p.id},
+        {"doutor", p.doutor},
+        {"solicitado_por_id", p.solicitado_por_id},
+        {"solicitado_por_nome", p.solicitado_por_nome},
+        {"imagem_referencia_url", p.imagem_referencia_url},
+        {"arte_final_url", p.arte_final_url},
+        {"status", p.status}
+    };
+}
+void from_json(const json& j, Placa& p) {
+    j.at("id").get_to(p.id);
+    j.at("doutor").get_to(p.doutor);
+    j.at("solicitado_por_id").get_to(p.solicitado_por_id);
+    j.at("solicitado_por_nome").get_to(p.solicitado_por_nome);
+    j.at("status").get_to(p.status);
+
+    if (j.contains("imagem_referencia_url")) { j.at("imagem_referencia_url").get_to(p.imagem_referencia_url); }
+    else { p.imagem_referencia_url = ""; }
+
+    if (j.contains("arte_final_url")) { j.at("arte_final_url").get_to(p.arte_final_url); }
+    else { p.arte_final_url = ""; }
+}
 
 // --- Implementação DatabaseManager ---
 
@@ -73,7 +239,7 @@ bool DatabaseManager::saveToFile(const std::string& filename, const std::map<uin
             return false;
         }
         json j = database;
-        file << j.dump(4); 
+        file << j.dump(4);
     }
     catch (const json::exception& e) {
         Utils::log_to_file("ERRO: Falha ao serializar dados para " + filename + ": " + e.what());
@@ -94,6 +260,7 @@ bool DatabaseManager::loadAll() {
     success &= loadFromFile(LEADS_DATABASE_FILE, leads_);
     success &= loadFromFile(COMPRAS_DATABASE_FILE, compras_);
     success &= loadFromFile(VISITAS_DATABASE_FILE, visitas_);
+    success &= loadFromFile(PLACAS_DATABASE_FILE, placas_);
     return success;
 }
 
@@ -103,8 +270,10 @@ bool DatabaseManager::saveAll() {
     success &= saveToFile(LEADS_DATABASE_FILE, leads_);
     success &= saveToFile(COMPRAS_DATABASE_FILE, compras_);
     success &= saveToFile(VISITAS_DATABASE_FILE, visitas_);
+    success &= saveToFile(PLACAS_DATABASE_FILE, placas_);
     return success;
 }
+
 
 // --- Implementações dos Getters/Setters/Manipuladores ---
 
@@ -189,5 +358,48 @@ bool DatabaseManager::removeVisita(uint64_t id) {
     if (visitas_.erase(id) > 0) { return saveVisitas(); }
     return false;
 }
-void DatabaseManager::clearVisitas() { visitas_.clear(); saveVisitas(); }
+void DatabaseManager::clearVisitas() {
+    std::map<uint64_t, Visita> visitas_filtradas;
+    for (auto const& [id, visita] : visitas_) {
+        if (visita.status != "agendada") {
+            visitas_filtradas[id] = visita;
+        }
+    }
+    visitas_ = visitas_filtradas;
+    saveVisitas();
+}
 bool DatabaseManager::saveVisitas() { return saveToFile(VISITAS_DATABASE_FILE, visitas_); }
+
+// --- NOVAS IMPLEMENTAÇÕES PLACA ---
+const std::map<uint64_t, Placa>& DatabaseManager::getPlacas() const { return placas_; }
+std::optional<Placa> DatabaseManager::getPlaca(uint64_t id) const {
+    auto it = placas_.find(id);
+    if (it != placas_.end()) { return it->second; }
+    return std::nullopt;
+}
+Placa* DatabaseManager::getPlacaPtr(uint64_t id) {
+    auto it = placas_.find(id);
+    if (it != placas_.end()) { return &it->second; }
+    return nullptr;
+}
+bool DatabaseManager::addOrUpdatePlaca(const Placa& p) {
+    placas_[p.id] = p;
+    return savePlacas();
+}
+bool DatabaseManager::removePlaca(uint64_t id) {
+    if (placas_.erase(id) > 0) {
+        return savePlacas();
+    }
+    return false;
+}
+void DatabaseManager::clearPlacas() {
+    std::map<uint64_t, Placa> placas_filtradas;
+    for (auto const& [id, placa] : placas_) {
+        if (placa.status != "pendente") {
+            placas_filtradas[id] = placa;
+        }
+    }
+    placas_ = placas_filtradas;
+    savePlacas();
+}
+bool DatabaseManager::savePlacas() { return saveToFile(PLACAS_DATABASE_FILE, placas_); }

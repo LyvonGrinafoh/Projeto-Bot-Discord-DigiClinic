@@ -12,6 +12,7 @@ private:
     std::map<uint64_t, Lead> leads_;
     std::map<uint64_t, Compra> compras_;
     std::map<uint64_t, Visita> visitas_;
+    std::map<uint64_t, Placa> placas_;
 
     template<typename T>
     bool loadFromFile(const std::string& filename, std::map<uint64_t, T>& database);
@@ -26,6 +27,7 @@ public:
 
     bool saveAll();
 
+    // --- Métodos de Solicitacao ---
     const std::map<uint64_t, Solicitacao>& getSolicitacoes() const;
     std::optional<Solicitacao> getSolicitacao(uint64_t id) const;
     bool addOrUpdateSolicitacao(const Solicitacao& s);
@@ -33,6 +35,7 @@ public:
     void clearSolicitacoes();
     bool saveSolicitacoes();
 
+    // --- Métodos de Lead ---
     const std::map<uint64_t, Lead>& getLeads() const;
     std::optional<Lead> getLead(uint64_t id) const;
     Lead* getLeadPtr(uint64_t id);
@@ -41,6 +44,7 @@ public:
     void clearLeads();
     bool saveLeads();
 
+    // --- Métodos de Compra ---
     const std::map<uint64_t, Compra>& getCompras() const;
     std::optional<Compra> getCompra(uint64_t id) const;
     bool addOrUpdateCompra(const Compra& c);
@@ -48,6 +52,7 @@ public:
     void clearCompras();
     bool saveCompras();
 
+    // --- Métodos de Visita ---
     const std::map<uint64_t, Visita>& getVisitas() const;
     std::optional<Visita> getVisita(uint64_t id) const;
     Visita* getVisitaPtr(uint64_t id);
@@ -55,4 +60,13 @@ public:
     bool removeVisita(uint64_t id);
     void clearVisitas();
     bool saveVisitas();
+
+    // --- NOVOS MÉTODOS DE PLACA ---
+    const std::map<uint64_t, Placa>& getPlacas() const;
+    std::optional<Placa> getPlaca(uint64_t id) const;
+    Placa* getPlacaPtr(uint64_t id);
+    bool addOrUpdatePlaca(const Placa& p);
+    bool removePlaca(uint64_t id);
+    void clearPlacas();
+    bool savePlacas();
 };

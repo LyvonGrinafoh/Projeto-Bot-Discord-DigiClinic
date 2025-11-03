@@ -8,6 +8,8 @@
 #include <vector>
 #include <fstream>
 #include <variant>
+#include <filesystem>
+#include <algorithm>
 
 TicketCommands::TicketCommands(dpp::cluster& bot, TicketManager& tm, const BotConfig& config, CommandHandler& handler) :
     bot_(bot), ticketManager_(tm), config_(config), cmdHandler_(handler) {
@@ -146,6 +148,11 @@ void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
         return;
     }
 
+    if (ticket.status != "aberto") {
+        event.reply(dpp::message("❌ Este ticket não está mais aberto.").set_flags(dpp::m_ephemeral));
+        return;
+    }
+
     if (closer.id != ticket.user_a_id && closer.id != ticket.user_b_id) {
         event.reply(dpp::message("❌ Apenas os participantes do ticket (" + dpp::user::get_mention(ticket.user_a_id) + " e " + dpp::user::get_mention(ticket.user_b_id) + ") podem fechá-lo.").set_flags(dpp::m_ephemeral));
         return;
@@ -168,10 +175,9 @@ void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
     bot_.channel_delete(ticket.channel_id, [this, ticket, closer, log_filename](const dpp::confirmation_callback_t& cb) {
         if (cb.is_error()) {
             Utils::log_to_file("ERRO: Falha ao deletar canal do ticket " + std::to_string(ticket.ticket_id) + ": " + cb.get_error().message);
-            return;
         }
 
-        ticketManager_.removeTicket(ticket.ticket_id);
+        ticketManager_.arquivarTicket(ticket.ticket_id, log_filename);
 
         dpp::embed log_embed;
         log_embed.set_color(dpp::colors::red).set_title("Ticket #" + std::to_string(ticket.ticket_id) + " Fechado");
@@ -181,7 +187,65 @@ void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
         });
 }
 
-void TicketCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id) {
+void TicketCommands::handle_ver_log(const dpp::slashcommand_t& event) {
+    int64_t ticket_id_int = std::get<int64_t>(event.get_parameter("codigo"));
+    uint64_t ticket_id = static_cast<uint64_t>(ticket_id_int);
+
+    dpp::permission user_perms = event.command.get_resolved_permission(event.command.get_issuing_user().id);
+    bool has_admin_perm = user_perms.has(dpp::p_administrator);
+
+    const auto& roles = event.command.member.get_roles();
+
+    bool has_cargo_role = std::find(roles.begin(), roles.end(), config_.cargo_permitido) != roles.end();
+
+    if (!has_admin_perm && !has_cargo_role) {
+        event.reply(dpp::message("❌ Você não tem permissão para usar este comando.").set_flags(dpp::m_ephemeral));
+        return;
+    }
+
+    std::optional<Ticket> ticket_opt = ticketManager_.findTicketById(ticket_id);
+
+    if (!ticket_opt) {
+        event.reply(dpp::message("❌ Código de ticket não encontrado no banco de dados.").set_flags(dpp::m_ephemeral));
+        return;
+    }
+
+    Ticket ticket = *ticket_opt;
+
+    if (ticket.status == "aberto") {
+        event.reply(dpp::message("❌ Este ticket ainda está aberto. Só é possível baixar logs de tickets fechados.").set_flags(dpp::m_ephemeral));
+        return;
+    }
+
+    if (ticket.log_filename.empty()) {
+        event.reply(dpp::message("❌ Este ticket fechado não possui um arquivo de log registrado.").set_flags(dpp::m_ephemeral));
+        return;
+    }
+
+    if (!std::filesystem::exists(ticket.log_filename)) {
+        event.reply(dpp::message("❌ O arquivo de log (`" + ticket.log_filename + "`) não foi encontrado no servidor. Pode ter sido apagado.").set_flags(dpp::m_ephemeral));
+        return;
+    }
+
+    try {
+        dpp::message msg;
+        msg.set_flags(dpp::m_ephemeral);
+        msg.set_content("Aqui está o log do Ticket #" + std::to_string(ticket.ticket_id));
+        msg.add_file(ticket.log_filename, dpp::utility::read_file(ticket.log_filename));
+        event.reply(msg);
+    }
+    catch (const dpp::exception& e) {
+        event.reply(dpp::message("❌ Erro ao ler ou anexar o arquivo de log: " + std::string(e.what())).set_flags(dpp::m_ephemeral));
+        Utils::log_to_file("ERRO: Falha ao ler/anexar log " + ticket.log_filename + ": " + e.what());
+    }
+    catch (const std::exception& e) {
+        event.reply(dpp::message("❌ Erro de sistema ao ler o arquivo de log: " + std::string(e.what())).set_flags(dpp::m_ephemeral));
+        Utils::log_to_file("ERRO: Falha ao ler/anexar log " + ticket.log_filename + ": " + e.what());
+    }
+}
+
+
+void TicketCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id, const BotConfig& config) {
     dpp::slashcommand chamar_cmd("chamar", "Inicia um ticket de conversa privada com um usuário.", bot_id);
     chamar_cmd.add_option(dpp::command_option(dpp::co_user, "usuario", "O usuário com quem você quer falar.", true));
     commands.push_back(chamar_cmd);
@@ -189,4 +253,10 @@ void TicketCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& comma
     dpp::slashcommand finalizar_cmd("finalizar_ticket", "Fecha e arquiva um ticket de conversa.", bot_id);
     finalizar_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O número do ticket a ser fechado.", true));
     commands.push_back(finalizar_cmd);
+
+    dpp::slashcommand ver_log_cmd("ver_log", "Baixa o arquivo de log de um ticket fechado (Admin).", bot_id);
+    ver_log_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O número do ticket fechado.", true));
+    ver_log_cmd.set_default_permissions(0);
+    ver_log_cmd.add_permission(dpp::command_permission(config.cargo_permitido, dpp::cpt_role, true));
+    commands.push_back(ver_log_cmd);
 }
