@@ -95,14 +95,46 @@ void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
 
                     dpp::embed embed;
                     embed.set_color(dpp::colors::green).set_title("✅ Ticket Criado: #" + std::to_string(ticket_real.ticket_id));
-                    embed.set_description("Canal privado <#" + std::to_string(new_channel.id) + "> criado para a conversa entre " + author.get_mention() + " e " + target_user.get_mention() + ".\n\nUse `/finalizar_ticket " + std::to_string(ticket_real.ticket_id) + "` dentro daquele canal para encerrar.");
+                    embed.set_description("Canal privado <#" + std::to_string(new_channel.id) + "> criado para a conversa entre " + author.get_mention() + " e " + target_user.get_mention() + ".\n\nUse `/finalizar_ticket` dentro daquele canal para encerrar.");
 
                     event_copy.edit_original_response(dpp::message().add_embed(embed));
 
                     dpp::embed ticket_embed;
                     ticket_embed.set_color(dpp::colors::sti_blue).set_title("Ticket #" + std::to_string(ticket_real.ticket_id) + " Iniciado");
-                    ticket_embed.set_description(author.get_mention() + " iniciou uma conversa com " + target_user.get_mention() + ".\n\nAmbos podem usar `/finalizar_ticket " + std::to_string(ticket_real.ticket_id) + "` aqui para fechar e arquivar este ticket.");
+                    ticket_embed.set_description(author.get_mention() + " iniciou uma conversa com " + target_user.get_mention() + ".\n\nAmbos podem usar `/finalizar_ticket` aqui para fechar e arquivar este ticket.");
                     bot_.message_create(dpp::message(new_channel.id, ticket_embed));
+
+                    // --- INÍCIO DA NOVA LÓGICA DE NOTIFICAÇÃO ---
+
+                    // 1. Notificar no canal principal (temporário)
+                    dpp::message public_msg(event_copy.command.channel_id,
+                        target_user.get_mention() + ", " + author.get_mention() + " está te chamando no ticket <#" + std::to_string(new_channel.id) + ">."
+                    );
+
+                    bot_.message_create(public_msg, [this](const dpp::confirmation_callback_t& msg_cb) {
+                        if (!msg_cb.is_error()) {
+                            auto* msg_ptr = std::get_if<dpp::message>(&msg_cb.value);
+                            if (msg_ptr) {
+                                dpp::message msg_criada = *msg_ptr;
+                                // Inicia timer de 10 minutos (600 segundos) para deletar a mensagem
+                                bot_.start_timer([this, msg_criada](dpp::timer timer_handle) {
+                                    bot_.message_delete(msg_criada.id, msg_criada.channel_id);
+                                    bot_.stop_timer(timer_handle);
+                                    }, 600);
+                            }
+                        }
+                        });
+
+                    // 2. Notificar no privado (DM)
+                    dpp::message dm_msg("Olá " + target_user.username + "! " + author.get_mention() + " abriu um ticket privado com você aqui no servidor.\n\nPor favor, vá para o canal <#" + std::to_string(new_channel.id) + "> para conversar.");
+                    bot_.direct_message_create(target_user.id, dm_msg, [this, target_user](const dpp::confirmation_callback_t& dm_cb) {
+                        if (dm_cb.is_error()) {
+                            Utils::log_to_file("AVISO: Falha ao enviar DM de notificação de ticket para " + target_user.username + ": " + dm_cb.get_error().message);
+                        }
+                        });
+
+                    // --- FIM DA NOVA LÓGICA DE NOTIFICAÇÃO ---
+
                     });
 
             }
@@ -130,21 +162,40 @@ void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
 
 
 void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
-    int64_t ticket_id_int = std::get<int64_t>(event.get_parameter("codigo"));
-    uint64_t ticket_id = static_cast<uint64_t>(ticket_id_int);
     dpp::user closer = event.command.get_issuing_user();
+    std::optional<Ticket> ticket_opt;
+    uint64_t ticket_id_para_fechar = 0;
 
-    std::optional<Ticket> ticket_opt = ticketManager_.findTicketById(ticket_id);
+    auto param_codigo = event.get_parameter("codigo");
 
+    if (auto val_ptr = std::get_if<int64_t>(&param_codigo)) {
+        // O usuário forneceu um código
+        ticket_id_para_fechar = static_cast<uint64_t>(*val_ptr);
+        ticket_opt = ticketManager_.findTicketById(ticket_id_para_fechar);
+    }
+    else {
+        // O usuário NÃO forneceu um código, tentar achar pelo canal
+        ticket_opt = ticketManager_.findTicketByChannel(event.command.channel_id);
+        if (ticket_opt) {
+            ticket_id_para_fechar = ticket_opt->ticket_id;
+        }
+    }
+
+    // --- Verificações ---
     if (!ticket_opt) {
-        event.reply(dpp::message("❌ Código de ticket não encontrado.").set_flags(dpp::m_ephemeral));
+        if (ticket_id_para_fechar != 0) {
+            event.reply(dpp::message("❌ Código de ticket não encontrado.").set_flags(dpp::m_ephemeral));
+        }
+        else {
+            event.reply(dpp::message("❌ Nenhum ticket aberto encontrado neste canal. Se quiser fechar um ticket específico, use `/finalizar_ticket codigo: <id>`.").set_flags(dpp::m_ephemeral));
+        }
         return;
     }
 
     Ticket ticket = *ticket_opt;
 
     if (event.command.channel_id != ticket.channel_id) {
-        event.reply(dpp::message("❌ Este comando só pode ser usado dentro do canal do ticket correspondente.").set_flags(dpp::m_ephemeral));
+        event.reply(dpp::message("❌ Este comando só pode ser usado dentro do canal do ticket correspondente (`" + std::to_string(ticket.channel_id) + "`).").set_flags(dpp::m_ephemeral));
         return;
     }
 
@@ -154,10 +205,18 @@ void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
     }
 
     if (closer.id != ticket.user_a_id && closer.id != ticket.user_b_id) {
-        event.reply(dpp::message("❌ Apenas os participantes do ticket (" + dpp::user::get_mention(ticket.user_a_id) + " e " + dpp::user::get_mention(ticket.user_b_id) + ") podem fechá-lo.").set_flags(dpp::m_ephemeral));
-        return;
+        // Verificação de permissão de admin/cargo
+        dpp::permission user_perms = event.command.get_resolved_permission(closer.id);
+        const auto& roles = event.command.member.get_roles();
+        bool has_cargo_role = std::find(roles.begin(), roles.end(), config_.cargo_permitido) != roles.end();
+
+        if (!user_perms.has(dpp::p_administrator) && !has_cargo_role) {
+            event.reply(dpp::message("❌ Apenas os participantes do ticket ou a staff podem fechá-lo.").set_flags(dpp::m_ephemeral));
+            return;
+        }
     }
 
+    // --- Lógica de Fechamento ---
     cmdHandler_.replyAndDelete(event, dpp::message("Fechando e arquivando ticket... ⏳"));
 
     std::string log_content = ticketManager_.getAndRemoveLog(ticket.channel_id);
@@ -251,7 +310,8 @@ void TicketCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& comma
     commands.push_back(chamar_cmd);
 
     dpp::slashcommand finalizar_cmd("finalizar_ticket", "Fecha e arquiva um ticket de conversa.", bot_id);
-    finalizar_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O número do ticket a ser fechado.", true));
+    // Alteração: "codigo" agora é opcional (false)
+    finalizar_cmd.add_option(dpp::command_option(dpp::co_integer, "codigo", "O número do ticket (opcional se usado no canal).", false));
     commands.push_back(finalizar_cmd);
 
     dpp::slashcommand ver_log_cmd("ver_log", "Baixa o arquivo de log de um ticket fechado (Admin).", bot_id);

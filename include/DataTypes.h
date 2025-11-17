@@ -41,6 +41,7 @@ struct Solicitacao {
     std::string nome_usuario_responsavel;
     TipoSolicitacao tipo;
     std::string status = "pendente";
+    std::string anexo_path;
 };
 
 void to_json(json& j, const Solicitacao& s);
@@ -77,13 +78,12 @@ void from_json(const json& j, Lead& l);
 
 struct Compra {
     uint64_t id = 0;
-    std::string item;
+    std::string descricao;
     std::string local_compra;
-    std::string unidade_destino;
-    int quantidade = 0;
+    double valor = 0.0;
     std::string observacao;
-    std::string solicitado_por;
-    std::string data_solicitacao;
+    std::string registrado_por;
+    std::string data_registro;
 };
 
 void to_json(json& j, const Compra& c);
@@ -107,14 +107,13 @@ struct Visita {
 void to_json(json& j, const Visita& v);
 void from_json(const json& j, Visita& v);
 
-// --- STRUCT TICKET ATUALIZADA ---
 struct Ticket {
     uint64_t ticket_id = 0;
     dpp::snowflake channel_id = 0;
     dpp::snowflake user_a_id = 0;
     dpp::snowflake user_b_id = 0;
-    std::string status = "aberto"; // "aberto" ou "fechado"
-    std::string log_filename;      // Caminho para o arquivo .txt
+    std::string status = "aberto";
+    std::string log_filename;
 };
 
 void to_json(json& j, const Ticket& t);
@@ -123,15 +122,29 @@ void from_json(const json& j, Ticket& t);
 struct Placa {
     uint64_t id = 0;
     std::string doutor;
+    std::string tipo_placa;
     dpp::snowflake solicitado_por_id = 0;
     std::string solicitado_por_nome;
-    std::string imagem_referencia_url;
-    std::string arte_final_url;
+    std::string imagem_referencia_path;
+    std::string arte_final_path;
     std::string status = "pendente";
 };
 
 void to_json(json& j, const Placa& p);
 void from_json(const json& j, Placa& p);
+
+struct EstoqueItem {
+    uint64_t id = 0;
+    std::string nome_item;
+    int quantidade = 0;
+    std::string unidade;
+    std::string local_estoque;
+    std::string atualizado_por_nome;
+    std::string data_ultima_att;
+};
+
+void to_json(json& j, const EstoqueItem& e);
+void from_json(const json& j, EstoqueItem& e);
 
 
 const std::string DATABASE_FILE = "database.json";
@@ -140,5 +153,5 @@ const std::string COMPRAS_DATABASE_FILE = "compras_database.json";
 const std::string VISITAS_DATABASE_FILE = "visitas_database.json";
 const std::string TICKETS_DATABASE_FILE = "tickets.json";
 const std::string PLACAS_DATABASE_FILE = "placas.json";
+const std::string ESTOQUE_DATABASE_FILE = "estoque.json";
 const std::string LOG_FILE = "bot_log.txt";
-// Não precisamos de um novo arquivo, vamos usar o 'tickets.json' mesmo.

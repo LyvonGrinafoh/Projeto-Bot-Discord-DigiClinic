@@ -45,7 +45,7 @@ add_executable(${PROJECT_NAME}
     src/commands/CompraCommands.cpp
     src/commands/GerarPlanilhaCommand.cpp
     src/commands/TicketCommands.cpp
-)
+ "include/EstoqueCommands.h" "src/commands/EstoqueCommands.cpp" "include/TodoCommands.h" "src/commands/TodoCommands.cpp")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     dpp

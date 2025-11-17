@@ -5,15 +5,15 @@
 
 class CommandHandler;
 class DatabaseManager;
-class EventHandler;   
+class EventHandler;
 
 class PlacaCommands {
 private:
     dpp::cluster& bot_;
-    DatabaseManager& db_; 
+    DatabaseManager& db_;
     const BotConfig& config_;
     CommandHandler& cmdHandler_;
-    EventHandler& eventHandler_; 
+    EventHandler& eventHandler_;
 
 public:
     // Construtor atualizado
@@ -21,7 +21,7 @@ public:
 
     void handle_placa(const dpp::slashcommand_t& event);
     void handle_finalizar_placa(const dpp::slashcommand_t& event);
-    void handle_lista_placas(const dpp::slashcommand_t& event); 
+    void handle_lista_placas(const dpp::slashcommand_t& event);
 
     static void addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id);
 };

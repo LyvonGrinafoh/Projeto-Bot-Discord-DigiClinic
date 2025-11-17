@@ -12,6 +12,8 @@
 #include "CompraCommands.h"
 #include "GerarPlanilhaCommand.h"
 #include "TicketCommands.h"
+#include "EstoqueCommands.h"
+#include "TodoCommands.h"
 
 class DatabaseManager;
 class ConfigManager;
@@ -35,6 +37,8 @@ private:
     CompraCommands compraCmds_;
     GerarPlanilhaCommand gerarPlanilhaCmd_;
     TicketCommands ticketCmds_;
+    EstoqueCommands estoqueCmds_;
+    TodoCommands todoCmds_;
 
     void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
     void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
@@ -58,4 +62,6 @@ public:
     friend class PlacaCommands;
     friend class CompraCommands;
     friend class TicketCommands;
+    friend class EstoqueCommands;
+    friend class TodoCommands;
 };

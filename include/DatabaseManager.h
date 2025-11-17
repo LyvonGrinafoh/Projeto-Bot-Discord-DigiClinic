@@ -13,6 +13,7 @@ private:
     std::map<uint64_t, Compra> compras_;
     std::map<uint64_t, Visita> visitas_;
     std::map<uint64_t, Placa> placas_;
+    std::map<uint64_t, EstoqueItem> estoque_;
 
     template<typename T>
     bool loadFromFile(const std::string& filename, std::map<uint64_t, T>& database);
@@ -39,6 +40,7 @@ public:
     const std::map<uint64_t, Lead>& getLeads() const;
     std::optional<Lead> getLead(uint64_t id) const;
     Lead* getLeadPtr(uint64_t id);
+    Lead* findLeadByContato(const std::string& contato);
     bool addOrUpdateLead(const Lead& l);
     bool removeLead(uint64_t id);
     void clearLeads();
@@ -61,7 +63,7 @@ public:
     void clearVisitas();
     bool saveVisitas();
 
-    // --- NOVOS MÉTODOS DE PLACA ---
+    // --- MÉTODOS DE PLACA ---
     const std::map<uint64_t, Placa>& getPlacas() const;
     std::optional<Placa> getPlaca(uint64_t id) const;
     Placa* getPlacaPtr(uint64_t id);
@@ -69,4 +71,13 @@ public:
     bool removePlaca(uint64_t id);
     void clearPlacas();
     bool savePlacas();
+
+    // --- MÉTODOS DE ESTOQUE ---
+    const std::map<uint64_t, EstoqueItem>& getEstoque() const;
+    std::optional<EstoqueItem> getEstoqueItem(uint64_t id) const;
+    EstoqueItem* getEstoqueItemPtr(uint64_t id);
+    EstoqueItem* getEstoqueItemPorNome(const std::string& nome);
+    bool addOrUpdateEstoqueItem(const EstoqueItem& item);
+    bool removeEstoqueItem(uint64_t id);
+    bool saveEstoque();
 };

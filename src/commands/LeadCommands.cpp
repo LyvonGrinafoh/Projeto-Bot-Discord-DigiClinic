@@ -37,6 +37,17 @@ void LeadCommands::handle_adicionar_lead(const dpp::slashcommand_t& event) {
     auto contato_param = event.get_parameter("contato");
     if (std::holds_alternative<std::string>(contato_param)) { novo_lead.contato = std::get<std::string>(contato_param); }
 
+    if (!novo_lead.contato.empty()) {
+        Lead* lead_existente = db_.findLeadByContato(novo_lead.contato);
+        if (lead_existente != nullptr) {
+            dpp::message msg;
+            msg.set_flags(dpp::m_ephemeral);
+            msg.set_content("❌ **Lead Duplicado!**\nO contato (`" + novo_lead.contato + "`) que você tentou registrar já existe.\n\nEle pertence ao lead **" + lead_existente->nome + "** (Código: `" + std::to_string(lead_existente->id) + "`).");
+            event.reply(msg);
+            return;
+        }
+    }
+
     if (db_.addOrUpdateLead(novo_lead)) {
         dpp::embed embed = dpp::embed().set_color(dpp::colors::green).set_title("✅ Novo Lead Adicionado").add_field("Nome", novo_lead.nome, true).add_field("Origem", novo_lead.origem, true).add_field("Contato", novo_lead.contato.empty() ? "Nao informado" : novo_lead.contato, true).set_footer(dpp::embed_footer().set_text("Codigo do Lead: " + std::to_string(novo_lead.id)));
         cmdHandler_.replyAndDelete(event, dpp::message().add_embed(embed), 60);
@@ -56,7 +67,24 @@ void LeadCommands::handle_modificar_lead(const dpp::slashcommand_t& event) {
         auto check_update_string = [&](const std::string& param_name, std::string& field) { auto param = event.get_parameter(param_name); if (auto val_ptr = std::get_if<std::string>(&param)) { if (*val_ptr != field) { field = *val_ptr; return true; } } return false; };
         auto check_update_bool = [&](const std::string& param_name, bool& field) { auto param = event.get_parameter(param_name); if (auto val_ptr = std::get_if<std::string>(&param)) { bool new_value = (*val_ptr == "sim"); if (new_value != field) { field = new_value; return true; } } return false; };
 
-        modificado |= check_update_string("nome", lead_a_modificar.nome); modificado |= check_update_string("contato", lead_a_modificar.contato); modificado |= check_update_string("area", lead_a_modificar.area_atuacao); modificado |= check_update_string("unidade", lead_a_modificar.unidade); modificado |= check_update_bool("conhece_formato", lead_a_modificar.conhece_formato); modificado |= check_update_bool("veio_campanha", lead_a_modificar.veio_campanha);
+        modificado |= check_update_string("nome", lead_a_modificar.nome);
+
+        // Verificação de duplicidade ao modificar contato
+        auto param_contato = event.get_parameter("contato");
+        if (auto val_ptr = std::get_if<std::string>(&param_contato)) {
+            std::string novo_contato = *val_ptr;
+            if (novo_contato != lead_a_modificar.contato && !novo_contato.empty()) {
+                Lead* lead_existente = db_.findLeadByContato(novo_contato);
+                if (lead_existente != nullptr && lead_existente->id != lead_a_modificar.id) {
+                    event.reply(dpp::message("❌ **Erro!** O novo contato (`" + novo_contato + "`) já pertence ao lead **" + lead_existente->nome + "** (Código: `" + std::to_string(lead_existente->id) + "`). A modificação foi cancelada.").set_flags(dpp::m_ephemeral));
+                    return;
+                }
+                lead_a_modificar.contato = novo_contato;
+                modificado = true;
+            }
+        }
+
+        modificado |= check_update_string("area", lead_a_modificar.area_atuacao); modificado |= check_update_string("unidade", lead_a_modificar.unidade); modificado |= check_update_bool("conhece_formato", lead_a_modificar.conhece_formato); modificado |= check_update_bool("veio_campanha", lead_a_modificar.veio_campanha);
         auto respondido_param = event.get_parameter("respondido"); if (auto val_ptr = std::get_if<std::string>(&respondido_param)) { bool new_value = (*val_ptr == "sim"); if (new_value != lead_a_modificar.respondido) { lead_a_modificar.respondido = new_value; lead_a_modificar.data_hora_resposta = new_value ? Utils::format_timestamp(std::time(nullptr)) : ""; modificado = true; } }
         modificado |= check_update_string("status_conversa", lead_a_modificar.status_conversa); modificado |= check_update_string("status_followup", lead_a_modificar.status_followup); modificado |= check_update_bool("problema_contato", lead_a_modificar.problema_contato); modificado |= check_update_bool("convidou_visita", lead_a_modificar.convidou_visita); modificado |= check_update_bool("agendou_visita", lead_a_modificar.agendou_visita); modificado |= check_update_string("tipo_fechamento", lead_a_modificar.tipo_fechamento); modificado |= check_update_bool("teve_adicionais", lead_a_modificar.teve_adicionais);
         auto valor_fechamento_param = event.get_parameter("valor_fechamento"); if (auto val_ptr = std::get_if<double>(&valor_fechamento_param)) { if (*val_ptr != lead_a_modificar.valor_fechamento) { lead_a_modificar.valor_fechamento = *val_ptr; modificado = true; } }

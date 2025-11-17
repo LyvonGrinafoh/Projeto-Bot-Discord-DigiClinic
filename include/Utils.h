@@ -3,11 +3,18 @@
 #include <string>
 #include <ctime>
 #include <cstdint>
+#include <dpp/dpp.h>
+#include <functional>
 
 namespace Utils {
 
     std::string format_timestamp(time_t timestamp);
     void log_to_file(const std::string& message);
     uint64_t gerar_codigo();
+    void BaixarAnexo(dpp::cluster* bot,
+        const std::string& url_anexo,
+        const std::string& caminho_salvar,
+        std::function<void(bool sucesso)> callback_final);
+    bool validarFormatoData(const std::string& data);
 
 }

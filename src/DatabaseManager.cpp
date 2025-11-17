@@ -4,6 +4,35 @@
 #include <iostream>
 #include <cstdio>
 #include <optional>
+#include <algorithm>
+#include <string> // Adicionado para std::stoull
+
+// --- INÍCIO DA FUNÇÃO HELPER ---
+// Helper para ler com segurança um uint64_t/snowflake do JSON
+// (Lida com valores salvos como número OU string)
+static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& target) {
+    if (j.contains(key)) {
+        const auto& value = j.at(key);
+        if (value.is_number()) {
+            value.get_to(target);
+        }
+        else if (value.is_string()) {
+            try {
+                target = std::stoull(value.get<std::string>());
+            }
+            catch (...) {
+                target = 0; // Falha na conversão
+            }
+        }
+        else {
+            target = 0; // Tipo inválido (null, etc)
+        }
+    }
+    else {
+        target = 0; // Chave não existe
+    }
+}
+// --- FIM DA FUNÇÃO HELPER ---
 
 
 void to_json(json& j, const Solicitacao& s) {
@@ -14,12 +43,13 @@ void to_json(json& j, const Solicitacao& s) {
         {"prazo", s.prazo},
         {"nome_usuario_responsavel", s.nome_usuario_responsavel},
         {"tipo", s.tipo},
-        {"status", s.status}
+        {"status", s.status},
+        {"anexo_path", s.anexo_path}
     };
 }
 void from_json(const json& j, Solicitacao& s) {
-    j.at("id").get_to(s.id);
-    j.at("id_usuario_responsavel").get_to(s.id_usuario_responsavel);
+    safe_get_snowflake(j, "id", s.id);
+    safe_get_snowflake(j, "id_usuario_responsavel", s.id_usuario_responsavel);
     j.at("texto").get_to(s.texto);
     j.at("prazo").get_to(s.prazo);
     j.at("nome_usuario_responsavel").get_to(s.nome_usuario_responsavel);
@@ -37,6 +67,12 @@ void from_json(const json& j, Solicitacao& s) {
     }
     else {
         s.status = "pendente";
+    }
+    if (j.contains("anexo_path")) {
+        j.at("anexo_path").get_to(s.anexo_path);
+    }
+    else {
+        s.anexo_path = "";
     }
 }
 void to_json(json& j, const Lead& l) {
@@ -67,7 +103,7 @@ void to_json(json& j, const Lead& l) {
     };
 }
 void from_json(const json& j, Lead& l) {
-    j.at("id").get_to(l.id);
+    safe_get_snowflake(j, "id", l.id);
     j.at("origem").get_to(l.origem);
     j.at("data_contato").get_to(l.data_contato);
     j.at("hora_contato").get_to(l.hora_contato);
@@ -96,26 +132,37 @@ void from_json(const json& j, Lead& l) {
 void to_json(json& j, const Compra& c) {
     j = json{
         {"id", c.id},
-        {"item", c.item},
+        {"descricao", c.descricao},
         {"local_compra", c.local_compra},
-        {"quantidade", c.quantidade},
+        {"valor", c.valor},
         {"observacao", c.observacao},
-        {"solicitado_por", c.solicitado_por},
-        {"data_solicitacao", c.data_solicitacao}
+        {"registrado_por", c.registrado_por},
+        {"data_registro", c.data_registro}
     };
 }
 void from_json(const json& j, Compra& c) {
-    j.at("id").get_to(c.id);
-    j.at("item").get_to(c.item);
+    safe_get_snowflake(j, "id", c.id);
+
+    if (j.contains("descricao")) { j.at("descricao").get_to(c.descricao); }
+    else if (j.contains("item")) { j.at("item").get_to(c.descricao); }
+    else { c.descricao = "N/A"; }
+
     if (j.contains("local_compra")) { j.at("local_compra").get_to(c.local_compra); }
     else { c.local_compra = "N/A"; }
-    if (j.contains("unidade_destino")) { j.at("unidade_destino").get_to(c.unidade_destino); }
-    else { c.unidade_destino = "N/A"; }
-    if (j.contains("quantidade")) { j.at("quantidade").get_to(c.quantidade); }
-    else { c.quantidade = 0; }
-    j.at("observacao").get_to(c.observacao);
-    j.at("solicitado_por").get_to(c.solicitado_por);
-    j.at("data_solicitacao").get_to(c.data_solicitacao);
+
+    if (j.contains("valor")) { j.at("valor").get_to(c.valor); }
+    else { c.valor = 0.0; }
+
+    if (j.contains("observacao")) { j.at("observacao").get_to(c.observacao); }
+    else { c.observacao = ""; }
+
+    if (j.contains("registrado_por")) { j.at("registrado_por").get_to(c.registrado_por); }
+    else if (j.contains("solicitado_por")) { j.at("solicitado_por").get_to(c.registrado_por); }
+    else { c.registrado_por = "N/A"; }
+
+    if (j.contains("data_registro")) { j.at("data_registro").get_to(c.data_registro); }
+    else if (j.contains("data_solicitacao")) { j.at("data_solicitacao").get_to(c.data_registro); }
+    else { c.data_registro = "N/A"; }
 }
 
 void to_json(json& j, const Visita& v) {
@@ -135,8 +182,8 @@ void to_json(json& j, const Visita& v) {
     };
 }
 void from_json(const json& j, Visita& v) {
-    j.at("id").get_to(v.id);
-    j.at("quem_marcou_id").get_to(v.quem_marcou_id);
+    safe_get_snowflake(j, "id", v.id);
+    safe_get_snowflake(j, "quem_marcou_id", v.quem_marcou_id);
     j.at("quem_marcou_nome").get_to(v.quem_marcou_nome);
     j.at("doutor").get_to(v.doutor);
     j.at("area").get_to(v.area);
@@ -173,26 +220,67 @@ void to_json(json& j, const Placa& p) {
     j = json{
         {"id", p.id},
         {"doutor", p.doutor},
+        {"tipo_placa", p.tipo_placa},
         {"solicitado_por_id", p.solicitado_por_id},
         {"solicitado_por_nome", p.solicitado_por_nome},
-        {"imagem_referencia_url", p.imagem_referencia_url},
-        {"arte_final_url", p.arte_final_url},
+        {"imagem_referencia_path", p.imagem_referencia_path},
+        {"arte_final_path", p.arte_final_path},
         {"status", p.status}
     };
 }
 void from_json(const json& j, Placa& p) {
-    j.at("id").get_to(p.id);
+    safe_get_snowflake(j, "id", p.id);
     j.at("doutor").get_to(p.doutor);
-    j.at("solicitado_por_id").get_to(p.solicitado_por_id);
+
+    if (j.contains("tipo_placa")) { j.at("tipo_placa").get_to(p.tipo_placa); }
+    else { p.tipo_placa = "N/A"; }
+
+    safe_get_snowflake(j, "solicitado_por_id", p.solicitado_por_id);
     j.at("solicitado_por_nome").get_to(p.solicitado_por_nome);
     j.at("status").get_to(p.status);
 
-    if (j.contains("imagem_referencia_url")) { j.at("imagem_referencia_url").get_to(p.imagem_referencia_url); }
-    else { p.imagem_referencia_url = ""; }
+    if (j.contains("imagem_referencia_path")) { j.at("imagem_referencia_path").get_to(p.imagem_referencia_path); }
+    else if (j.contains("imagem_referencia_url")) { j.at("imagem_referencia_url").get_to(p.imagem_referencia_path); }
+    else { p.imagem_referencia_path = ""; }
 
-    if (j.contains("arte_final_url")) { j.at("arte_final_url").get_to(p.arte_final_url); }
-    else { p.arte_final_url = ""; }
+    if (j.contains("arte_final_path")) { j.at("arte_final_path").get_to(p.arte_final_path); }
+    else if (j.contains("arte_final_url")) { j.at("arte_final_url").get_to(p.arte_final_path); }
+    else { p.arte_final_path = ""; }
 }
+
+void to_json(json& j, const EstoqueItem& e) {
+    j = json{
+        {"id", e.id},
+        {"nome_item", e.nome_item},
+        {"quantidade", e.quantidade},
+        {"unidade", e.unidade},
+        {"local_estoque", e.local_estoque},
+        {"atualizado_por_nome", e.atualizado_por_nome},
+        {"data_ultima_att", e.data_ultima_att}
+    };
+}
+void from_json(const json& j, EstoqueItem& e) {
+    safe_get_snowflake(j, "id", e.id);
+
+    if (j.contains("nome_item")) { j.at("nome_item").get_to(e.nome_item); }
+    else { e.nome_item = "N/A"; }
+
+    if (j.contains("quantidade")) { j.at("quantidade").get_to(e.quantidade); }
+    else { e.quantidade = 0; }
+
+    if (j.contains("unidade")) { j.at("unidade").get_to(e.unidade); }
+    else { e.unidade = "N/A"; }
+
+    if (j.contains("local_estoque")) { j.at("local_estoque").get_to(e.local_estoque); }
+    else { e.local_estoque = "N/A"; }
+
+    if (j.contains("atualizado_por_nome")) { j.at("atualizado_por_nome").get_to(e.atualizado_por_nome); }
+    else { e.atualizado_por_nome = "N/A"; }
+
+    if (j.contains("data_ultima_att")) { j.at("data_ultima_att").get_to(e.data_ultima_att); }
+    else { e.data_ultima_att = "N/A"; }
+}
+
 
 // --- Implementação DatabaseManager ---
 
@@ -261,6 +349,7 @@ bool DatabaseManager::loadAll() {
     success &= loadFromFile(COMPRAS_DATABASE_FILE, compras_);
     success &= loadFromFile(VISITAS_DATABASE_FILE, visitas_);
     success &= loadFromFile(PLACAS_DATABASE_FILE, placas_);
+    success &= loadFromFile(ESTOQUE_DATABASE_FILE, estoque_);
     return success;
 }
 
@@ -271,6 +360,7 @@ bool DatabaseManager::saveAll() {
     success &= saveToFile(COMPRAS_DATABASE_FILE, compras_);
     success &= saveToFile(VISITAS_DATABASE_FILE, visitas_);
     success &= saveToFile(PLACAS_DATABASE_FILE, placas_);
+    success &= saveToFile(ESTOQUE_DATABASE_FILE, estoque_);
     return success;
 }
 
@@ -307,6 +397,22 @@ std::optional<Lead> DatabaseManager::getLead(uint64_t id) const {
 Lead* DatabaseManager::getLeadPtr(uint64_t id) {
     auto it = leads_.find(id);
     if (it != leads_.end()) { return &it->second; }
+    return nullptr;
+}
+Lead* DatabaseManager::findLeadByContato(const std::string& contato) {
+    if (contato.empty()) {
+        return nullptr;
+    }
+    std::string contato_lower = contato;
+    std::transform(contato_lower.begin(), contato_lower.end(), contato_lower.begin(), ::tolower);
+
+    for (auto& [id, lead] : leads_) {
+        std::string lead_contato_lower = lead.contato;
+        std::transform(lead_contato_lower.begin(), lead_contato_lower.end(), lead_contato_lower.begin(), ::tolower);
+        if (lead_contato_lower == contato_lower) {
+            return &lead;
+        }
+    }
     return nullptr;
 }
 bool DatabaseManager::addOrUpdateLead(const Lead& l) {
@@ -370,7 +476,7 @@ void DatabaseManager::clearVisitas() {
 }
 bool DatabaseManager::saveVisitas() { return saveToFile(VISITAS_DATABASE_FILE, visitas_); }
 
-// --- NOVAS IMPLEMENTAÇÕES PLACA ---
+// --- IMPLEMENTAÇÕES PLACA ---
 const std::map<uint64_t, Placa>& DatabaseManager::getPlacas() const { return placas_; }
 std::optional<Placa> DatabaseManager::getPlaca(uint64_t id) const {
     auto it = placas_.find(id);
@@ -403,3 +509,41 @@ void DatabaseManager::clearPlacas() {
     savePlacas();
 }
 bool DatabaseManager::savePlacas() { return saveToFile(PLACAS_DATABASE_FILE, placas_); }
+
+
+// --- IMPLEMENTAÇÕES ESTOQUE ---
+const std::map<uint64_t, EstoqueItem>& DatabaseManager::getEstoque() const { return estoque_; }
+std::optional<EstoqueItem> DatabaseManager::getEstoqueItem(uint64_t id) const {
+    auto it = estoque_.find(id);
+    if (it != estoque_.end()) { return it->second; }
+    return std::nullopt;
+}
+EstoqueItem* DatabaseManager::getEstoqueItemPtr(uint64_t id) {
+    auto it = estoque_.find(id);
+    if (it != estoque_.end()) { return &it->second; }
+    return nullptr;
+}
+EstoqueItem* DatabaseManager::getEstoqueItemPorNome(const std::string& nome) {
+    std::string nome_lower = nome;
+    std::transform(nome_lower.begin(), nome_lower.end(), nome_lower.begin(), ::tolower);
+
+    for (auto& [id, item] : estoque_) {
+        std::string item_nome_lower = item.nome_item;
+        std::transform(item_nome_lower.begin(), item_nome_lower.end(), item_nome_lower.begin(), ::tolower);
+        if (item_nome_lower == nome_lower) {
+            return &item;
+        }
+    }
+    return nullptr;
+}
+bool DatabaseManager::addOrUpdateEstoqueItem(const EstoqueItem& item) {
+    estoque_[item.id] = item;
+    return saveEstoque();
+}
+bool DatabaseManager::removeEstoqueItem(uint64_t id) {
+    if (estoque_.erase(id) > 0) {
+        return saveEstoque();
+    }
+    return false;
+}
+bool DatabaseManager::saveEstoque() { return saveToFile(ESTOQUE_DATABASE_FILE, estoque_); }
