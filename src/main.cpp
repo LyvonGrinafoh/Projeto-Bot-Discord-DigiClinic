@@ -1,12 +1,15 @@
 ﻿#include <iostream>
 #include <exception>
+#include <memory>
 #include "BotCore.h"
 #include "Utils.h"
 
 int main() {
     try {
-        BotCore botInstance;
-        botInstance.run();
+        auto botInstance = std::make_unique<BotCore>();
+
+        botInstance->run();
+
         Utils::log_to_file("--- Bot encerrado normally ---");
         return 0;
     }

@@ -16,7 +16,6 @@ private:
     EventHandler& eventHandler_;
 
 public:
-    // Construtor atualizado
     PlacaCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler, EventHandler& eventHandler);
 
     void handle_placa(const dpp::slashcommand_t& event);

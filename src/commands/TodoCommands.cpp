@@ -33,8 +33,8 @@ void TodoCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& command
     dpp::slashcommand cmd("todo", "Registra uma nova anotação/mudança (Restrito).", bot_id);
     cmd.add_option(dpp::command_option(dpp::co_string, "anotacao", "A nota a ser registrada.", true));
 
-    cmd.set_default_permissions(0); // Desabilita para todos por padrão
-    cmd.add_permission(dpp::command_permission(18761986748405713, dpp::cpt_user, true)); // Habilita só para você
+    cmd.set_default_permissions(0);
+    cmd.add_permission(dpp::command_permission(187910708674035713, dpp::cpt_user, true));
 
     commands.push_back(cmd);
 }

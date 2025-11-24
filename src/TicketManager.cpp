@@ -3,11 +3,8 @@
 #include <iostream>
 #include <cstdio>
 #include <chrono>
-#include <string> // Adicionado para std::stoull, std::string
+#include <string>
 
-// --- INÍCIO DA FUNÇÃO HELPER ---
-// Helper para ler com segurança um uint64_t/snowflake do JSON
-// (Lida com valores salvos como número OU string)
 static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& target) {
     if (j.contains(key)) {
         const auto& value = j.at(key);
@@ -19,18 +16,17 @@ static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& 
                 target = std::stoull(value.get<std::string>());
             }
             catch (...) {
-                target = 0; // Falha na conversão
+                target = 0;
             }
         }
         else {
-            target = 0; // Tipo inválido (null, etc)
+            target = 0;
         }
     }
     else {
-        target = 0; // Chave não existe
+        target = 0;
     }
 }
-// --- FIM DA FUNÇÃO HELPER ---
 
 void to_json(json& j, const Ticket& t) {
     j = json{
@@ -43,10 +39,10 @@ void to_json(json& j, const Ticket& t) {
     };
 }
 void from_json(const json& j, Ticket& t) {
-    safe_get_snowflake(j, "ticket_id", t.ticket_id);
-    safe_get_snowflake(j, "channel_id", t.channel_id);
-    safe_get_snowflake(j, "user_a_id", t.user_a_id);
-    safe_get_snowflake(j, "user_b_id", t.user_b_id);
+    safe_get_snowflake(j, "ticket_id", t.ticket_id); // Protegido
+    safe_get_snowflake(j, "channel_id", t.channel_id); // Protegido
+    safe_get_snowflake(j, "user_a_id", t.user_a_id); // Protegido
+    safe_get_snowflake(j, "user_b_id", t.user_b_id); // Protegido
 
     if (j.contains("status")) {
         j.at("status").get_to(t.status);

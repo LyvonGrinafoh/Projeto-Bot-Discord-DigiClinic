@@ -28,6 +28,7 @@ if(MSVC)
     add_compile_options(/utf-8 /EHsc)
 endif()
 
+# --- MUDANÇA AQUI: Adicionado resource.rc ---
 add_executable(${PROJECT_NAME}
     src/main.cpp
     src/BotCore.cpp
@@ -45,7 +46,11 @@ add_executable(${PROJECT_NAME}
     src/commands/CompraCommands.cpp
     src/commands/GerarPlanilhaCommand.cpp
     src/commands/TicketCommands.cpp
- "include/EstoqueCommands.h" "src/commands/EstoqueCommands.cpp" "include/TodoCommands.h" "src/commands/TodoCommands.cpp")
+    src/commands/EstoqueCommands.cpp
+    src/commands/TodoCommands.cpp
+    resource.rc
+)
+# --------------------------------------------
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     dpp

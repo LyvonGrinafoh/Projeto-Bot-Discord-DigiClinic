@@ -24,6 +24,12 @@ void GerarPlanilhaCommand::handle_gerar_planilha(const dpp::slashcommand_t& even
         ano = std::get<int64_t>(ano_param);
     }
 
+    std::optional<dpp::snowflake> usuario_filtro;
+    auto user_param = event.get_parameter("usuario");
+    if (std::holds_alternative<dpp::snowflake>(user_param)) {
+        usuario_filtro = std::get<dpp::snowflake>(user_param);
+    }
+
     if (tipo == "leads") {
         reportGenerator_.gerarPlanilhaLeads(event, mes, ano);
     }
@@ -34,7 +40,10 @@ void GerarPlanilhaCommand::handle_gerar_planilha(const dpp::slashcommand_t& even
         reportGenerator_.gerarPlanilhaVisitas(event, mes, ano);
     }
     else if (tipo == "demandas") {
-        reportGenerator_.gerarPlanilhaDemandas(event, mes, ano);
+        reportGenerator_.gerarPlanilhaDemandas(event, mes, ano, usuario_filtro);
+    }
+    else if (tipo == "reposicao") {
+        reportGenerator_.gerarPlanilhaReposicao(event);
     }
     else {
         event.edit_original_response(dpp::message("Tipo de planilha desconhecido: " + tipo).set_flags(dpp::m_ephemeral));
@@ -49,6 +58,7 @@ void GerarPlanilhaCommand::addCommandDefinitions(std::vector<dpp::slashcommand>&
         .add_choice(dpp::command_option_choice("Registros de Gastos", std::string("compras")))
         .add_choice(dpp::command_option_choice("Visitas", std::string("visitas")))
         .add_choice(dpp::command_option_choice("Demandas/Pedidos", std::string("demandas")))
+        .add_choice(dpp::command_option_choice("Reposição de Estoque", std::string("reposicao")))
     );
 
     dpp::command_option mes_opt(dpp::co_integer, "mes", "Filtrar por mês (opcional).", false);
@@ -71,6 +81,8 @@ void GerarPlanilhaCommand::addCommandDefinitions(std::vector<dpp::slashcommand>&
         .set_min_value(2023)
         .set_max_value(2050)
     );
+
+    gerar_planilha_cmd.add_option(dpp::command_option(dpp::co_user, "usuario", "Filtrar por usuário (apenas para Demandas).", false));
 
     commands.push_back(gerar_planilha_cmd);
 }

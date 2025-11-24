@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <dpp/dpp.h>
 #include <functional>
+#include "DataTypes.h"
 
 namespace Utils {
 
@@ -16,5 +17,6 @@ namespace Utils {
         const std::string& caminho_salvar,
         std::function<void(bool sucesso)> callback_final);
     bool validarFormatoData(const std::string& data);
-
+    bool isDateTomorrow(const std::string& date_str);
+    dpp::embed generatePageEmbed(const PaginationState& state);
 }

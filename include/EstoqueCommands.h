@@ -18,6 +18,7 @@ private:
 public:
     EstoqueCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler);
 
+    void handle_estoque_criar(const dpp::slashcommand_t& event);
     void handle_estoque_add(const dpp::slashcommand_t& event);
     void handle_estoque_remove(const dpp::slashcommand_t& event);
     void handle_estoque_lista(const dpp::slashcommand_t& event);

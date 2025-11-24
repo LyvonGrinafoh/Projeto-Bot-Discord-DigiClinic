@@ -5,11 +5,9 @@
 #include <cstdio>
 #include <optional>
 #include <algorithm>
-#include <string> // Adicionado para std::stoull
+#include <string> 
 
 // --- INÍCIO DA FUNÇÃO HELPER ---
-// Helper para ler com segurança um uint64_t/snowflake do JSON
-// (Lida com valores salvos como número OU string)
 static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& target) {
     if (j.contains(key)) {
         const auto& value = j.at(key);
@@ -21,15 +19,15 @@ static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& 
                 target = std::stoull(value.get<std::string>());
             }
             catch (...) {
-                target = 0; // Falha na conversão
+                target = 0;
             }
         }
         else {
-            target = 0; // Tipo inválido (null, etc)
+            target = 0;
         }
     }
     else {
-        target = 0; // Chave não existe
+        target = 0;
     }
 }
 // --- FIM DA FUNÇÃO HELPER ---
@@ -44,7 +42,10 @@ void to_json(json& j, const Solicitacao& s) {
         {"nome_usuario_responsavel", s.nome_usuario_responsavel},
         {"tipo", s.tipo},
         {"status", s.status},
-        {"anexo_path", s.anexo_path}
+        {"anexo_path", s.anexo_path},
+        {"prioridade", s.prioridade},
+        {"data_criacao", s.data_criacao},
+        {"data_finalizacao", s.data_finalizacao}
     };
 }
 void from_json(const json& j, Solicitacao& s) {
@@ -53,28 +54,27 @@ void from_json(const json& j, Solicitacao& s) {
     j.at("texto").get_to(s.texto);
     j.at("prazo").get_to(s.prazo);
     j.at("nome_usuario_responsavel").get_to(s.nome_usuario_responsavel);
-    if (j.contains("tipo")) {
-        j.at("tipo").get_to(s.tipo);
-    }
-    else if (j.contains("is_pedido") && j.at("is_pedido").get<bool>()) {
-        s.tipo = PEDIDO;
-    }
-    else {
-        s.tipo = DEMANDA;
-    }
-    if (j.contains("status")) {
-        j.at("status").get_to(s.status);
-    }
-    else {
-        s.status = "pendente";
-    }
-    if (j.contains("anexo_path")) {
-        j.at("anexo_path").get_to(s.anexo_path);
-    }
-    else {
-        s.anexo_path = "";
-    }
+
+    if (j.contains("tipo")) { j.at("tipo").get_to(s.tipo); }
+    else if (j.contains("is_pedido") && j.at("is_pedido").get<bool>()) { s.tipo = PEDIDO; }
+    else { s.tipo = DEMANDA; }
+
+    if (j.contains("status")) { j.at("status").get_to(s.status); }
+    else { s.status = "pendente"; }
+
+    if (j.contains("anexo_path")) { j.at("anexo_path").get_to(s.anexo_path); }
+    else { s.anexo_path = ""; }
+
+    if (j.contains("prioridade")) { j.at("prioridade").get_to(s.prioridade); }
+    else { s.prioridade = 1; }
+
+    if (j.contains("data_criacao")) { j.at("data_criacao").get_to(s.data_criacao); }
+    else { s.data_criacao = ""; }
+
+    if (j.contains("data_finalizacao")) { j.at("data_finalizacao").get_to(s.data_finalizacao); }
+    else { s.data_finalizacao = ""; }
 }
+
 void to_json(json& j, const Lead& l) {
     j = json{
         {"id", l.id},
@@ -125,10 +125,9 @@ void from_json(const json& j, Lead& l) {
     j.at("teve_adicionais").get_to(l.teve_adicionais);
     j.at("valor_fechamento").get_to(l.valor_fechamento);
     j.at("print_final_conversa").get_to(l.print_final_conversa);
-    if (j.contains("criado_por")) {
-        j.at("criado_por").get_to(l.criado_por);
-    }
+    if (j.contains("criado_por")) { j.at("criado_por").get_to(l.criado_por); }
 }
+
 void to_json(json& j, const Compra& c) {
     j = json{
         {"id", c.id},
@@ -191,29 +190,16 @@ void from_json(const json& j, Visita& v) {
     j.at("horario").get_to(v.horario);
     j.at("unidade").get_to(v.unidade);
     j.at("telefone").get_to(v.telefone);
-    if (j.contains("observacoes")) {
-        j.at("observacoes").get_to(v.observacoes);
-    }
+    if (j.contains("observacoes")) { j.at("observacoes").get_to(v.observacoes); }
+    else { v.observacoes = ""; }
+
+    if (j.contains("status")) { j.at("status").get_to(v.status); }
     else {
-        v.observacoes = "";
+        if (v.observacoes.find("Visita Cancelada") != std::string::npos) { v.status = "cancelada"; }
+        else { v.status = "agendada"; }
     }
-    if (j.contains("status")) {
-        j.at("status").get_to(v.status);
-    }
-    else {
-        if (v.observacoes.find("Visita Cancelada") != std::string::npos) {
-            v.status = "cancelada";
-        }
-        else {
-            v.status = "agendada";
-        }
-    }
-    if (j.contains("relatorio_visita")) {
-        j.at("relatorio_visita").get_to(v.relatorio_visita);
-    }
-    else {
-        v.relatorio_visita = "";
-    }
+    if (j.contains("relatorio_visita")) { j.at("relatorio_visita").get_to(v.relatorio_visita); }
+    else { v.relatorio_visita = ""; }
 }
 
 void to_json(json& j, const Placa& p) {
@@ -256,7 +242,8 @@ void to_json(json& j, const EstoqueItem& e) {
         {"unidade", e.unidade},
         {"local_estoque", e.local_estoque},
         {"atualizado_por_nome", e.atualizado_por_nome},
-        {"data_ultima_att", e.data_ultima_att}
+        {"data_ultima_att", e.data_ultima_att},
+        {"quantidade_minima", e.quantidade_minima}
     };
 }
 void from_json(const json& j, EstoqueItem& e) {
@@ -279,6 +266,9 @@ void from_json(const json& j, EstoqueItem& e) {
 
     if (j.contains("data_ultima_att")) { j.at("data_ultima_att").get_to(e.data_ultima_att); }
     else { e.data_ultima_att = "N/A"; }
+
+    if (j.contains("quantidade_minima")) { j.at("quantidade_minima").get_to(e.quantidade_minima); }
+    else { e.quantidade_minima = 0; }
 }
 
 
@@ -364,10 +354,6 @@ bool DatabaseManager::saveAll() {
     return success;
 }
 
-
-// --- Implementações dos Getters/Setters/Manipuladores ---
-
-// Solicitacoes
 const std::map<uint64_t, Solicitacao>& DatabaseManager::getSolicitacoes() const { return solicitacoes_; }
 std::optional<Solicitacao> DatabaseManager::getSolicitacao(uint64_t id) const {
     auto it = solicitacoes_.find(id);
@@ -387,7 +373,6 @@ bool DatabaseManager::removeSolicitacao(uint64_t id) {
 void DatabaseManager::clearSolicitacoes() { solicitacoes_.clear(); saveSolicitacoes(); }
 bool DatabaseManager::saveSolicitacoes() { return saveToFile(DATABASE_FILE, solicitacoes_); }
 
-// Leads
 const std::map<uint64_t, Lead>& DatabaseManager::getLeads() const { return leads_; }
 std::optional<Lead> DatabaseManager::getLead(uint64_t id) const {
     auto it = leads_.find(id);
@@ -426,7 +411,6 @@ bool DatabaseManager::removeLead(uint64_t id) {
 void DatabaseManager::clearLeads() { leads_.clear(); saveLeads(); }
 bool DatabaseManager::saveLeads() { return saveToFile(LEADS_DATABASE_FILE, leads_); }
 
-// Compras
 const std::map<uint64_t, Compra>& DatabaseManager::getCompras() const { return compras_; }
 std::optional<Compra> DatabaseManager::getCompra(uint64_t id) const {
     auto it = compras_.find(id);
@@ -444,7 +428,6 @@ bool DatabaseManager::removeCompra(uint64_t id) {
 void DatabaseManager::clearCompras() { compras_.clear(); saveCompras(); }
 bool DatabaseManager::saveCompras() { return saveToFile(COMPRAS_DATABASE_FILE, compras_); }
 
-// Visitas
 const std::map<uint64_t, Visita>& DatabaseManager::getVisitas() const { return visitas_; }
 std::optional<Visita> DatabaseManager::getVisita(uint64_t id) const {
     auto it = visitas_.find(id);
@@ -476,7 +459,6 @@ void DatabaseManager::clearVisitas() {
 }
 bool DatabaseManager::saveVisitas() { return saveToFile(VISITAS_DATABASE_FILE, visitas_); }
 
-// --- IMPLEMENTAÇÕES PLACA ---
 const std::map<uint64_t, Placa>& DatabaseManager::getPlacas() const { return placas_; }
 std::optional<Placa> DatabaseManager::getPlaca(uint64_t id) const {
     auto it = placas_.find(id);
@@ -510,8 +492,6 @@ void DatabaseManager::clearPlacas() {
 }
 bool DatabaseManager::savePlacas() { return saveToFile(PLACAS_DATABASE_FILE, placas_); }
 
-
-// --- IMPLEMENTAÇÕES ESTOQUE ---
 const std::map<uint64_t, EstoqueItem>& DatabaseManager::getEstoque() const { return estoque_; }
 std::optional<EstoqueItem> DatabaseManager::getEstoqueItem(uint64_t id) const {
     auto it = estoque_.find(id);

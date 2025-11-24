@@ -15,8 +15,6 @@
 #include <filesystem>
 #include <fstream>
 
-dpp::embed generatePageEmbed(const PaginationState& state);
-
 LeadCommands::LeadCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler, EventHandler& eventHandler) :
     bot_(bot), db_(db), config_(config), cmdHandler_(handler), eventHandler_(eventHandler) {
 }
@@ -69,7 +67,6 @@ void LeadCommands::handle_modificar_lead(const dpp::slashcommand_t& event) {
 
         modificado |= check_update_string("nome", lead_a_modificar.nome);
 
-        // Verificação de duplicidade ao modificar contato
         auto param_contato = event.get_parameter("contato");
         if (auto val_ptr = std::get_if<std::string>(&param_contato)) {
             std::string novo_contato = *val_ptr;
@@ -159,7 +156,7 @@ void LeadCommands::handle_listar_leads(const dpp::slashcommand_t& event) {
     state.currentPage = 1;
     state.itemsPerPage = 5;
 
-    dpp::embed firstPageEmbed = generatePageEmbed(state);
+    dpp::embed firstPageEmbed = Utils::generatePageEmbed(state);
     bool needsPagination = state.items.size() > state.itemsPerPage;
 
     event.reply(dpp::message(event.command.channel_id, firstPageEmbed),

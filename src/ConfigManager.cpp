@@ -18,7 +18,12 @@ bool ConfigManager::load(const std::string& filename) {
             {"SOLICITACAO_PLACAS", 0}, {"PLACAS_FINALIZADAS", 0},
             {"SUGESTOES", 0}, {"BUGS", 0}
         };
-        j["CARGOS"] = { {"PERMITIDO", 0} };
+        j["CARGOS"] = {
+            {"PERMITIDO", 0},
+            {"TATUAPE", 0},
+            {"CAMPO_BELO", 0},
+            {"ADM", 0}
+        };
         j["CANAIS_RESTRITOS"] = {
             {"SO_IMAGENS", json::array()},
             {"SO_LINKS", json::array()},
@@ -50,7 +55,13 @@ bool ConfigManager::load(const std::string& filename) {
         config_.canal_placas_finalizadas = j.at("CANAIS").at("PLACAS_FINALIZADAS").get<dpp::snowflake>();
         config_.canal_sugestoes = j.at("CANAIS").at("SUGESTOES").get<dpp::snowflake>();
         config_.canal_bugs = j.at("CANAIS").at("BUGS").get<dpp::snowflake>();
+
         config_.cargo_permitido = j.at("CARGOS").at("PERMITIDO").get<dpp::snowflake>();
+
+        if (j.at("CARGOS").contains("TATUAPE")) config_.cargo_tatuape = j.at("CARGOS").at("TATUAPE").get<dpp::snowflake>();
+        if (j.at("CARGOS").contains("CAMPO_BELO")) config_.cargo_campo_belo = j.at("CARGOS").at("CAMPO_BELO").get<dpp::snowflake>();
+        if (j.at("CARGOS").contains("ADM")) config_.cargo_adm = j.at("CARGOS").at("ADM").get<dpp::snowflake>();
+
         config_.canais_so_imagens = j.at("CANAIS_RESTRITOS").at("SO_IMAGENS").get<std::vector<dpp::snowflake>>();
         config_.canais_so_links = j.at("CANAIS_RESTRITOS").at("SO_LINKS").get<std::vector<dpp::snowflake>>();
         config_.canais_so_documentos = j.at("CANAIS_RESTRITOS").at("SO_DOCUMENTOS").get<std::vector<dpp::snowflake>>();
