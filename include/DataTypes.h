@@ -5,7 +5,7 @@
 #include <map>
 #include <dpp/dpp.h>
 #include <nlohmann/json.hpp>
-#include <variant> // <-- IMPORTANTE: Adicionado para std::variant
+#include <variant>
 
 using json = nlohmann::json;
 
@@ -23,7 +23,6 @@ struct BotConfig {
     dpp::snowflake canal_sugestoes;
     dpp::snowflake canal_bugs;
 
-    // Cargos
     dpp::snowflake cargo_permitido;
     dpp::snowflake cargo_tatuape;
     dpp::snowflake cargo_campo_belo;
@@ -49,9 +48,10 @@ struct Solicitacao {
     TipoSolicitacao tipo;
     std::string status = "pendente";
     std::string anexo_path;
-    int prioridade = 1; // 0: Baixa, 1: Média (Padrão), 2: Alta
+    int prioridade = 1;
     std::string data_criacao;
     std::string data_finalizacao;
+    std::string observacao_finalizacao;
 };
 
 void to_json(json& j, const Solicitacao& s);
@@ -94,6 +94,8 @@ struct Compra {
     std::string observacao;
     std::string registrado_por;
     std::string data_registro;
+    std::string categoria;
+    std::string unidade;
 };
 
 void to_json(json& j, const Compra& c);
@@ -112,6 +114,7 @@ struct Visita {
     std::string observacoes;
     std::string status = "agendada";
     std::string relatorio_visita;
+    std::string ficha_path;
 };
 
 void to_json(json& j, const Visita& v);
@@ -124,6 +127,7 @@ struct Ticket {
     dpp::snowflake user_b_id = 0;
     std::string status = "aberto";
     std::string log_filename;
+    std::string nome_ticket;
 };
 
 void to_json(json& j, const Ticket& t);
@@ -152,11 +156,22 @@ struct EstoqueItem {
     std::string atualizado_por_nome;
     std::string data_ultima_att;
     int quantidade_minima = 0;
+    std::string categoria;
 };
 
 void to_json(json& j, const EstoqueItem& e);
 void from_json(const json& j, EstoqueItem& e);
 
+struct RelatorioDiario {
+    uint64_t id = 0;
+    dpp::snowflake user_id = 0;
+    std::string username;
+    std::string data_hora;
+    std::string conteudo;
+};
+
+void to_json(json& j, const RelatorioDiario& r);
+void from_json(const json& j, RelatorioDiario& r);
 
 const std::string DATABASE_FILE = "database.json";
 const std::string LEADS_DATABASE_FILE = "leads_database.json";
@@ -165,9 +180,10 @@ const std::string VISITAS_DATABASE_FILE = "visitas_database.json";
 const std::string TICKETS_DATABASE_FILE = "tickets.json";
 const std::string PLACAS_DATABASE_FILE = "placas.json";
 const std::string ESTOQUE_DATABASE_FILE = "estoque.json";
+const std::string RELATORIOS_DATABASE_FILE = "relatorios.json";
 const std::string LOG_FILE = "bot_log.txt";
 
-using PaginatedItem = std::variant<Lead, Solicitacao, Visita, Placa, EstoqueItem>;
+using PaginatedItem = std::variant<Lead, Solicitacao, Visita, Placa, EstoqueItem, RelatorioDiario>;
 
 struct PaginationState {
     dpp::snowflake channel_id;

@@ -19,10 +19,11 @@ private:
 public:
     SolicitacaoCommands(dpp::cluster& bot, DatabaseManager& db, const BotConfig& config, CommandHandler& handler, EventHandler& eventHandler);
     void handle_demanda_pedido(const dpp::slashcommand_t& event);
-    void handle_finalizar_solicitacao(const dpp::slashcommand_t& event);
+    void handle_finalizar_solicitacao_form(const dpp::slashcommand_t& event);
     void handle_cancelar_demanda(const dpp::slashcommand_t& event);
     void handle_limpar_demandas(const dpp::slashcommand_t& event);
     void handle_lista_demandas(const dpp::slashcommand_t& event);
+    void handle_ver_demanda(const dpp::slashcommand_t& event);
     void handle_lembrete(const dpp::slashcommand_t& event);
     static void addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id, const BotConfig& config);
 };

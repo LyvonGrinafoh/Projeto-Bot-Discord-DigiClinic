@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <string> 
 
-// --- INÍCIO DA FUNÇÃO HELPER ---
 static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& target) {
     if (j.contains(key)) {
         const auto& value = j.at(key);
@@ -30,8 +29,6 @@ static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& 
         target = 0;
     }
 }
-// --- FIM DA FUNÇÃO HELPER ---
-
 
 void to_json(json& j, const Solicitacao& s) {
     j = json{
@@ -45,7 +42,8 @@ void to_json(json& j, const Solicitacao& s) {
         {"anexo_path", s.anexo_path},
         {"prioridade", s.prioridade},
         {"data_criacao", s.data_criacao},
-        {"data_finalizacao", s.data_finalizacao}
+        {"data_finalizacao", s.data_finalizacao},
+        {"observacao_finalizacao", s.observacao_finalizacao}
     };
 }
 void from_json(const json& j, Solicitacao& s) {
@@ -73,6 +71,9 @@ void from_json(const json& j, Solicitacao& s) {
 
     if (j.contains("data_finalizacao")) { j.at("data_finalizacao").get_to(s.data_finalizacao); }
     else { s.data_finalizacao = ""; }
+
+    if (j.contains("observacao_finalizacao")) { j.at("observacao_finalizacao").get_to(s.observacao_finalizacao); }
+    else { s.observacao_finalizacao = ""; }
 }
 
 void to_json(json& j, const Lead& l) {
@@ -136,7 +137,9 @@ void to_json(json& j, const Compra& c) {
         {"valor", c.valor},
         {"observacao", c.observacao},
         {"registrado_por", c.registrado_por},
-        {"data_registro", c.data_registro}
+        {"data_registro", c.data_registro},
+        {"categoria", c.categoria},
+        {"unidade", c.unidade}
     };
 }
 void from_json(const json& j, Compra& c) {
@@ -162,6 +165,11 @@ void from_json(const json& j, Compra& c) {
     if (j.contains("data_registro")) { j.at("data_registro").get_to(c.data_registro); }
     else if (j.contains("data_solicitacao")) { j.at("data_solicitacao").get_to(c.data_registro); }
     else { c.data_registro = "N/A"; }
+
+    if (j.contains("categoria")) { j.at("categoria").get_to(c.categoria); }
+    else { c.categoria = "N/A"; }
+    if (j.contains("unidade")) { j.at("unidade").get_to(c.unidade); }
+    else { c.unidade = "N/A"; }
 }
 
 void to_json(json& j, const Visita& v) {
@@ -177,7 +185,8 @@ void to_json(json& j, const Visita& v) {
         {"telefone", v.telefone},
         {"observacoes", v.observacoes},
         {"status", v.status},
-        {"relatorio_visita", v.relatorio_visita}
+        {"relatorio_visita", v.relatorio_visita},
+        {"ficha_path", v.ficha_path}
     };
 }
 void from_json(const json& j, Visita& v) {
@@ -200,6 +209,34 @@ void from_json(const json& j, Visita& v) {
     }
     if (j.contains("relatorio_visita")) { j.at("relatorio_visita").get_to(v.relatorio_visita); }
     else { v.relatorio_visita = ""; }
+
+    if (j.contains("ficha_path")) { j.at("ficha_path").get_to(v.ficha_path); }
+    else { v.ficha_path = ""; }
+}
+
+void to_json(json& j, const Ticket& t) {
+    j = json{
+        {"ticket_id", t.ticket_id},
+        {"channel_id", t.channel_id},
+        {"user_a_id", t.user_a_id},
+        {"user_b_id", t.user_b_id},
+        {"status", t.status},
+        {"log_filename", t.log_filename},
+        {"nome_ticket", t.nome_ticket}
+    };
+}
+void from_json(const json& j, Ticket& t) {
+    safe_get_snowflake(j, "ticket_id", t.ticket_id);
+    safe_get_snowflake(j, "channel_id", t.channel_id);
+    safe_get_snowflake(j, "user_a_id", t.user_a_id);
+    safe_get_snowflake(j, "user_b_id", t.user_b_id);
+
+    if (j.contains("status")) { j.at("status").get_to(t.status); }
+    else { t.status = "aberto"; }
+    if (j.contains("log_filename")) { j.at("log_filename").get_to(t.log_filename); }
+    else { t.log_filename = ""; }
+    if (j.contains("nome_ticket")) { j.at("nome_ticket").get_to(t.nome_ticket); }
+    else { t.nome_ticket = "Sem Assunto"; }
 }
 
 void to_json(json& j, const Placa& p) {
@@ -243,7 +280,8 @@ void to_json(json& j, const EstoqueItem& e) {
         {"local_estoque", e.local_estoque},
         {"atualizado_por_nome", e.atualizado_por_nome},
         {"data_ultima_att", e.data_ultima_att},
-        {"quantidade_minima", e.quantidade_minima}
+        {"quantidade_minima", e.quantidade_minima},
+        {"categoria", e.categoria}
     };
 }
 void from_json(const json& j, EstoqueItem& e) {
@@ -269,10 +307,27 @@ void from_json(const json& j, EstoqueItem& e) {
 
     if (j.contains("quantidade_minima")) { j.at("quantidade_minima").get_to(e.quantidade_minima); }
     else { e.quantidade_minima = 0; }
+
+    if (j.contains("categoria")) { j.at("categoria").get_to(e.categoria); }
+    else { e.categoria = "N/A"; }
 }
 
-
-// --- Implementação DatabaseManager ---
+void to_json(json& j, const RelatorioDiario& r) {
+    j = json{
+        {"id", r.id},
+        {"user_id", r.user_id},
+        {"username", r.username},
+        {"data_hora", r.data_hora},
+        {"conteudo", r.conteudo}
+    };
+}
+void from_json(const json& j, RelatorioDiario& r) {
+    safe_get_snowflake(j, "id", r.id);
+    safe_get_snowflake(j, "user_id", r.user_id);
+    if (j.contains("username")) j.at("username").get_to(r.username); else r.username = "N/A";
+    if (j.contains("data_hora")) j.at("data_hora").get_to(r.data_hora); else r.data_hora = "";
+    if (j.contains("conteudo")) j.at("conteudo").get_to(r.conteudo); else r.conteudo = "";
+}
 
 template<typename T>
 bool DatabaseManager::loadFromFile(const std::string& filename, std::map<uint64_t, T>& database) {
@@ -340,6 +395,7 @@ bool DatabaseManager::loadAll() {
     success &= loadFromFile(VISITAS_DATABASE_FILE, visitas_);
     success &= loadFromFile(PLACAS_DATABASE_FILE, placas_);
     success &= loadFromFile(ESTOQUE_DATABASE_FILE, estoque_);
+    success &= loadFromFile(RELATORIOS_DATABASE_FILE, relatorios_);
     return success;
 }
 
@@ -351,6 +407,7 @@ bool DatabaseManager::saveAll() {
     success &= saveToFile(VISITAS_DATABASE_FILE, visitas_);
     success &= saveToFile(PLACAS_DATABASE_FILE, placas_);
     success &= saveToFile(ESTOQUE_DATABASE_FILE, estoque_);
+    success &= saveToFile(RELATORIOS_DATABASE_FILE, relatorios_);
     return success;
 }
 
@@ -527,3 +584,12 @@ bool DatabaseManager::removeEstoqueItem(uint64_t id) {
     return false;
 }
 bool DatabaseManager::saveEstoque() { return saveToFile(ESTOQUE_DATABASE_FILE, estoque_); }
+
+const std::map<uint64_t, RelatorioDiario>& DatabaseManager::getRelatorios() const { return relatorios_; }
+
+bool DatabaseManager::addOrUpdateRelatorio(const RelatorioDiario& r) {
+    relatorios_[r.id] = r;
+    return saveRelatorios();
+}
+
+bool DatabaseManager::saveRelatorios() { return saveToFile(RELATORIOS_DATABASE_FILE, relatorios_); }

@@ -22,7 +22,7 @@ public:
     TicketManager();
     bool loadTickets();
 
-    Ticket createTicket(dpp::snowflake user_a, dpp::snowflake user_b, dpp::snowflake channel_id);
+    Ticket createTicket(dpp::snowflake user_a, dpp::snowflake user_b, dpp::snowflake channel_id, const std::string& assunto);
 
     bool arquivarTicket(uint64_t ticket_id, const std::string& log_filename);
 

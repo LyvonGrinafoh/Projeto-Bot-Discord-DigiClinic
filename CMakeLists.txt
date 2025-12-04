@@ -49,7 +49,7 @@ add_executable(${PROJECT_NAME}
     src/commands/EstoqueCommands.cpp
     src/commands/TodoCommands.cpp
     resource.rc
-)
+ "include/RelatorioCommands.h" "src/commands/RelatorioCommands.cpp")
 # --------------------------------------------
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

@@ -45,6 +45,13 @@ void GerarPlanilhaCommand::handle_gerar_planilha(const dpp::slashcommand_t& even
     else if (tipo == "reposicao") {
         reportGenerator_.gerarPlanilhaReposicao(event);
     }
+    else if (tipo == "relatorios") {
+        if (!usuario_filtro.has_value()) {
+            event.edit_original_response(dpp::message("⚠️ Para gerar planilha de relatórios diários, você DEVE selecionar um usuário no campo 'usuario'.").set_flags(dpp::m_ephemeral));
+            return;
+        }
+        reportGenerator_.gerarPlanilhaRelatoriosDiarios(event, usuario_filtro.value(), mes, ano);
+    }
     else {
         event.edit_original_response(dpp::message("Tipo de planilha desconhecido: " + tipo).set_flags(dpp::m_ephemeral));
     }
@@ -59,30 +66,18 @@ void GerarPlanilhaCommand::addCommandDefinitions(std::vector<dpp::slashcommand>&
         .add_choice(dpp::command_option_choice("Visitas", std::string("visitas")))
         .add_choice(dpp::command_option_choice("Demandas/Pedidos", std::string("demandas")))
         .add_choice(dpp::command_option_choice("Reposição de Estoque", std::string("reposicao")))
+        .add_choice(dpp::command_option_choice("Relatórios Diários (Por Func)", std::string("relatorios")))
     );
 
     dpp::command_option mes_opt(dpp::co_integer, "mes", "Filtrar por mês (opcional).", false);
-    mes_opt.add_choice(dpp::command_option_choice("Janeiro", (int64_t)1));
-    mes_opt.add_choice(dpp::command_option_choice("Fevereiro", (int64_t)2));
-    mes_opt.add_choice(dpp::command_option_choice("Março", (int64_t)3));
-    mes_opt.add_choice(dpp::command_option_choice("Abril", (int64_t)4));
-    mes_opt.add_choice(dpp::command_option_choice("Maio", (int64_t)5));
-    mes_opt.add_choice(dpp::command_option_choice("Junho", (int64_t)6));
-    mes_opt.add_choice(dpp::command_option_choice("Julho", (int64_t)7));
-    mes_opt.add_choice(dpp::command_option_choice("Agosto", (int64_t)8));
-    mes_opt.add_choice(dpp::command_option_choice("Setembro", (int64_t)9));
-    mes_opt.add_choice(dpp::command_option_choice("Outubro", (int64_t)10));
-    mes_opt.add_choice(dpp::command_option_choice("Novembro", (int64_t)11));
-    mes_opt.add_choice(dpp::command_option_choice("Dezembro", (int64_t)12));
+    for (int i = 1; i <= 12; ++i) mes_opt.add_choice(dpp::command_option_choice(std::to_string(i), (int64_t)i));
     gerar_planilha_cmd.add_option(mes_opt);
 
     gerar_planilha_cmd.add_option(
         dpp::command_option(dpp::co_integer, "ano", "Filtrar por ano (opcional, ex: 2024).", false)
-        .set_min_value(2023)
-        .set_max_value(2050)
     );
 
-    gerar_planilha_cmd.add_option(dpp::command_option(dpp::co_user, "usuario", "Filtrar por usuário (apenas para Demandas).", false));
+    gerar_planilha_cmd.add_option(dpp::command_option(dpp::co_user, "usuario", "Filtrar por usuário (Obrigatório para Relatórios).", false));
 
     commands.push_back(gerar_planilha_cmd);
 }

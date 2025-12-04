@@ -6,6 +6,7 @@
 #include "TicketManager.h"
 #include "EstoqueCommands.h"
 #include "TodoCommands.h"
+#include "RelatorioCommands.h" 
 #include "Utils.h"
 #include <string>
 #include <vector>
@@ -32,7 +33,8 @@ CommandHandler::CommandHandler(
     gerarPlanilhaCmd_(reportGenerator_),
     ticketCmds_(bot, tm, configManager_.getConfig(), *this),
     estoqueCmds_(bot, db_, configManager_.getConfig(), *this),
-    todoCmds_(bot, configManager_.getConfig(), *this)
+    todoCmds_(bot, configManager_.getConfig(), *this),
+    relatorioCmds_(bot, db_, configManager_.getConfig(), *this)
 {
 }
 
@@ -49,8 +51,10 @@ void CommandHandler::registerCommands() {
         TicketCommands::addCommandDefinitions(command_list, bot_.me.id, config_);
         EstoqueCommands::addCommandDefinitions(command_list, bot_.me.id);
         TodoCommands::addCommandDefinitions(command_list, bot_.me.id);
+        RelatorioCommands::addCommandDefinitions(command_list, bot_.me.id);
+
         bot_.guild_bulk_command_create(command_list, config_.server_id);
-        Utils::log_to_file("Comandos slash registrados/atualizados para o servidor ID: " + std::to_string(config_.server_id));
+        Utils::log_to_file("Comandos slash atualizados.");
     }
 }
 
@@ -62,60 +66,72 @@ void CommandHandler::handleInteraction(const dpp::slashcommand_t& event) {
         else if (command_name == "finalizar_visita") { visitasCmds_.handle_finalizar_visita(event); }
         else if (command_name == "lista_visitas") { visitasCmds_.handle_lista_visitas(event); }
         else if (command_name == "modificar_visita") { visitasCmds_.handle_modificar_visita(event); }
+
         else if (command_name == "adicionar_lead") { leadCmds_.handle_adicionar_lead(event); }
         else if (command_name == "modificar_lead") { leadCmds_.handle_modificar_lead(event); }
         else if (command_name == "listar_leads") { leadCmds_.handle_listar_leads(event); }
         else if (command_name == "ver_lead") { leadCmds_.handle_ver_lead(event); }
         else if (command_name == "limpar_leads") { leadCmds_.handle_limpar_leads(event); }
         else if (command_name == "deletar_lead") { leadCmds_.handle_deletar_lead(event); }
+
         else if (command_name == "demanda" || command_name == "pedido") { solicitacaoCmds_.handle_demanda_pedido(event); }
-        else if (command_name == "finalizar_demanda" || command_name == "finalizar_pedido" || command_name == "cancelar_pedido" || command_name == "finalizar_lembrete") { solicitacaoCmds_.handle_finalizar_solicitacao(event); }
-        else if (command_name == "cancelar_demanda") { solicitacaoCmds_.handle_cancelar_demanda(event); }
+        else if (command_name == "finalizar_demanda" || command_name == "finalizar_pedido") { solicitacaoCmds_.handle_finalizar_solicitacao_form(event); }
+        else if (command_name == "ver_demanda") { solicitacaoCmds_.handle_ver_demanda(event); }
+        else if (command_name == "cancelar_demanda" || command_name == "cancelar_pedido") { solicitacaoCmds_.handle_cancelar_demanda(event); }
         else if (command_name == "limpar_demandas") { solicitacaoCmds_.handle_limpar_demandas(event); }
         else if (command_name == "lista_demandas") { solicitacaoCmds_.handle_lista_demandas(event); }
         else if (command_name == "lembrete") { solicitacaoCmds_.handle_lembrete(event); }
+        else if (command_name == "finalizar_lembrete") { solicitacaoCmds_.handle_finalizar_solicitacao_form(event); }
+
         else if (command_name == "placa") { placaCmds_.handle_placa(event); }
         else if (command_name == "finalizar_placa") { placaCmds_.handle_finalizar_placa(event); }
         else if (command_name == "lista_placas") { placaCmds_.handle_lista_placas(event); }
+
         else if (command_name == "registrar_gasto") { compraCmds_.handle_adicionar_compra(event); }
         else if (command_name == "gerar_planilha") { gerarPlanilhaCmd_.handle_gerar_planilha(event); }
+
         else if (command_name == "chamar") { ticketCmds_.handle_chamar(event); }
         else if (command_name == "finalizar_ticket") { ticketCmds_.handle_finalizar_ticket(event); }
         else if (command_name == "ver_log") { ticketCmds_.handle_ver_log(event); }
+
+        else if (command_name == "estoque_criar") { estoqueCmds_.handle_estoque_criar(event); }
         else if (command_name == "estoque_add") { estoqueCmds_.handle_estoque_add(event); }
         else if (command_name == "estoque_remove") { estoqueCmds_.handle_estoque_remove(event); }
         else if (command_name == "estoque_lista") { estoqueCmds_.handle_estoque_lista(event); }
+        else if (command_name == "estoque_delete") { estoqueCmds_.handle_estoque_delete(event); }
+
         else if (command_name == "todo") { todoCmds_.handle_todo(event); }
-        else { event.reply(dpp::message("Erro interno: O comando '/" + command_name + "' não foi reconhecido pelo handler.").set_flags(dpp::m_ephemeral)); Utils::log_to_file("AVISO: Comando nao roteado recebido: /" + command_name); }
+
+        else if (command_name == "relatorio_do_dia") { relatorioCmds_.handle_relatorio_do_dia(event); }
+
+        else { event.reply(dpp::message("Comando desconhecido.").set_flags(dpp::m_ephemeral)); }
     }
-    catch (const std::exception& e) { try { event.reply(dpp::message("❌ Ocorreu um erro inesperado ao processar o comando: " + std::string(e.what())).set_flags(dpp::m_ephemeral)); } catch (...) {} Utils::log_to_file("ERRO CRITICO no handleInteraction para /" + command_name + ": " + e.what()); }
-    catch (...) { try { event.reply(dpp::message("❌ Ocorreu um erro desconhecido e grave ao processar o comando.").set_flags(dpp::m_ephemeral)); } catch (...) {} Utils::log_to_file("ERRO CRITICO no handleInteraction para /" + command_name + ": Erro desconhecido."); }
+    catch (const std::exception& e) { Utils::log_to_file("ERRO CRITICO no handleInteraction: " + std::string(e.what())); }
+    catch (...) { Utils::log_to_file("ERRO CRITICO DESCONHECIDO no handleInteraction"); }
 }
 
 void CommandHandler::replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds) {
     if (msg.flags & dpp::m_ephemeral) { event.reply(msg); return; }
-    std::string interaction_token = event.command.token; dpp::slashcommand_t event_copy = event;
+    dpp::slashcommand_t event_copy = event;
     event.reply(msg, [this, event_copy, delay_seconds](const dpp::confirmation_callback_t& cb) {
         if (!cb.is_error()) {
             bot_.start_timer([this, event_copy](dpp::timer timer_handle) mutable {
-                event_copy.delete_original_response([](const dpp::confirmation_callback_t& delete_cb) { if (delete_cb.is_error() && delete_cb.get_error().code != 10062) {} });
+                event_copy.delete_original_response([](auto) {});
                 bot_.stop_timer(timer_handle);
                 }, delay_seconds);
         }
-        else { Utils::log_to_file("Falha ao enviar reply (deleção não agendada): " + cb.get_error().message); }
         });
 }
 
 void CommandHandler::editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds) {
     if (msg.flags & dpp::m_ephemeral) { event.edit_original_response(msg); return; }
-    std::string interaction_token = event.command.token; dpp::slashcommand_t event_copy = event;
+    dpp::slashcommand_t event_copy = event;
     event.edit_original_response(msg, [this, event_copy, delay_seconds](const dpp::confirmation_callback_t& cb) {
         if (!cb.is_error()) {
             bot_.start_timer([this, event_copy](dpp::timer timer_handle) mutable {
-                event_copy.delete_original_response([](const dpp::confirmation_callback_t& delete_cb) { if (delete_cb.is_error() && delete_cb.get_error().code != 10062) {} });
+                event_copy.delete_original_response([](auto) {});
                 bot_.stop_timer(timer_handle);
                 }, delay_seconds);
         }
-        else { Utils::log_to_file("Falha ao editar resposta original (deleção não agendada): " + cb.get_error().message); }
         });
 }

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <ctime>
 #include <variant>
+#include <filesystem>
 
 namespace Utils {
 
@@ -35,6 +36,11 @@ namespace Utils {
         const std::string& caminho_salvar,
         std::function<void(bool sucesso)> callback_final)
     {
+        std::filesystem::path path(caminho_salvar);
+        if (path.has_parent_path()) {
+            std::filesystem::create_directories(path.parent_path());
+        }
+
         bot->request(url_anexo, dpp::m_get, [caminho_salvar, callback_final](const dpp::http_request_completion_t& http) {
             if (http.status == 200) {
                 try {
@@ -47,7 +53,7 @@ namespace Utils {
                     arquivo_saida.close();
                     callback_final(true);
                 }
-                catch (const std::exception& e) {
+                catch (const std::exception&) {
                     callback_final(false);
                 }
             }
@@ -84,7 +90,38 @@ namespace Utils {
         return date_str == tomorrow_str;
     }
 
-    // --- Função de Paginação Centralizada ---
+    int compararDatas(const std::string& data1, const std::string& data2) {
+        std::tm tm1 = {};
+        std::tm tm2 = {};
+        std::stringstream ss1(data1);
+        std::stringstream ss2(data2);
+
+        ss1 >> std::get_time(&tm1, "%d/%m/%Y");
+        ss2 >> std::get_time(&tm2, "%d/%m/%Y");
+
+        if (ss1.fail() || ss2.fail()) return -2;
+
+        std::time_t t1 = mktime(&tm1);
+        std::time_t t2 = mktime(&tm2);
+
+        if (t1 < t2) return -1;
+        if (t1 > t2) return 1;
+        return 0;
+    }
+
+    bool dataPassada(const std::string& data_prazo) {
+        if (data_prazo.empty() || data_prazo == "N/A") return false;
+
+        std::time_t now = std::time(nullptr);
+        std::tm* now_tm = std::localtime(&now);
+
+        std::stringstream ss;
+        ss << std::put_time(now_tm, "%d/%m/%Y");
+        std::string hoje_str = ss.str();
+
+        return compararDatas(data_prazo, hoje_str) == -1;
+    }
+
     dpp::embed generatePageEmbed(const PaginationState& state) {
         dpp::embed embed;
 
@@ -132,8 +169,11 @@ namespace Utils {
                     std::string texto_curto = s->texto;
                     if (texto_curto.length() > 50) texto_curto = texto_curto.substr(0, 50) + "...";
 
+                    std::string status_show = s->status;
+                    if (s->status == "pendente" && dataPassada(s->prazo)) status_show += " (ATRASADA)";
+
                     description += prio_icon + " " + tipo_icon + " **" + std::to_string(s->id) + "** - " +
-                        texto_curto + " (" + s->status + ")\n";
+                        texto_curto + " (" + status_show + ")\n";
                 }
             }
             else if (state.listType == "visitas") {
@@ -164,5 +204,4 @@ namespace Utils {
 
         return embed;
     }
-
 }

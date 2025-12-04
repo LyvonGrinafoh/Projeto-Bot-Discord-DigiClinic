@@ -18,6 +18,8 @@ void CompraCommands::handle_adicionar_compra(const dpp::slashcommand_t& event) {
     nova_compra.descricao = std::get<std::string>(event.get_parameter("descricao"));
     nova_compra.local_compra = std::get<std::string>(event.get_parameter("local"));
     nova_compra.valor = std::get<double>(event.get_parameter("valor"));
+    nova_compra.categoria = std::get<std::string>(event.get_parameter("categoria"));
+    nova_compra.unidade = std::get<std::string>(event.get_parameter("unidade"));
 
     auto obs_param = event.get_parameter("observacao");
     if (auto val_ptr = std::get_if<std::string>(&obs_param)) {
@@ -31,7 +33,6 @@ void CompraCommands::handle_adicionar_compra(const dpp::slashcommand_t& event) {
     nova_compra.data_registro = Utils::format_timestamp(std::time(nullptr));
 
     if (db_.addOrUpdateCompra(nova_compra)) {
-
         std::stringstream ss;
         ss << "R$ " << std::fixed << std::setprecision(2) << nova_compra.valor;
         std::string valor_formatado = ss.str();
@@ -40,6 +41,8 @@ void CompraCommands::handle_adicionar_compra(const dpp::slashcommand_t& event) {
             .set_color(dpp::colors::light_sea_green)
             .set_title("💳 Novo Gasto Registrado")
             .add_field("Descrição", nova_compra.descricao, false)
+            .add_field("Categoria", nova_compra.categoria, true)
+            .add_field("Unidade", nova_compra.unidade, true)
             .add_field("Local", nova_compra.local_compra, true)
             .add_field("Valor", valor_formatado, true)
             .add_field("Observação", nova_compra.observacao, false)
@@ -48,15 +51,27 @@ void CompraCommands::handle_adicionar_compra(const dpp::slashcommand_t& event) {
         event.reply(dpp::message().add_embed(embed));
     }
     else {
-        event.reply(dpp::message("❌ Erro ao salvar o registro de gasto no banco de dados.").set_flags(dpp::m_ephemeral));
+        event.reply(dpp::message("❌ Erro ao salvar o registro no banco de dados.").set_flags(dpp::m_ephemeral));
     }
 }
 
 void CompraCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id) {
-    dpp::slashcommand cmd("registrar_gasto", "Registra um novo gasto no cartão de crédito.", bot_id);
-    cmd.add_option(dpp::command_option(dpp::co_string, "descricao", "Descrição do gasto (ex: Compra Papelaria).", true));
-    cmd.add_option(dpp::command_option(dpp::co_string, "local", "Local da compra (ex: Kalunga, Mercado Livre).", true));
-    cmd.add_option(dpp::command_option(dpp::co_number, "valor", "O valor do gasto (ex: 123.45).", true).set_min_value(0.01));
-    cmd.add_option(dpp::command_option(dpp::co_string, "observacao", "Observação adicional (opcional).", false));
+    dpp::slashcommand cmd("registrar_gasto", "Registra um novo gasto.", bot_id);
+    cmd.add_option(dpp::command_option(dpp::co_string, "descricao", "Descrição do gasto.", true));
+    cmd.add_option(dpp::command_option(dpp::co_string, "local", "Local da compra.", true));
+    cmd.add_option(dpp::command_option(dpp::co_number, "valor", "Valor (ex: 123.45).", true).set_min_value(0.01));
+    cmd.add_option(dpp::command_option(dpp::co_string, "categoria", "Categoria.", true)
+        .add_choice(dpp::command_option_choice("Café", std::string("Café")))
+        .add_choice(dpp::command_option_choice("ASB", std::string("ASB")))
+        .add_choice(dpp::command_option_choice("Faxina", std::string("Faxina")))
+        .add_choice(dpp::command_option_choice("Papelaria", std::string("Papelaria")))
+        .add_choice(dpp::command_option_choice("Outros", std::string("Outros")))
+    );
+    cmd.add_option(dpp::command_option(dpp::co_string, "unidade", "Unidade.", true)
+        .add_choice(dpp::command_option_choice("Tatuapé", std::string("Tatuapé")))
+        .add_choice(dpp::command_option_choice("Campo Belo", std::string("Campo Belo")))
+        .add_choice(dpp::command_option_choice("Ambas", std::string("Ambas")))
+    );
+    cmd.add_option(dpp::command_option(dpp::co_string, "observacao", "Observação.", false));
     commands.push_back(cmd);
 }

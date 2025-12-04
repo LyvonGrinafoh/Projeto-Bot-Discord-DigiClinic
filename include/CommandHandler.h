@@ -14,6 +14,7 @@
 #include "TicketCommands.h"
 #include "EstoqueCommands.h"
 #include "TodoCommands.h"
+#include "RelatorioCommands.h"
 
 class DatabaseManager;
 class ConfigManager;
@@ -39,9 +40,7 @@ private:
     TicketCommands ticketCmds_;
     EstoqueCommands estoqueCmds_;
     TodoCommands todoCmds_;
-
-    void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
-    void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
+    RelatorioCommands relatorioCmds_;
 
 public:
     CommandHandler(
@@ -56,12 +55,6 @@ public:
     void registerCommands();
     void handleInteraction(const dpp::slashcommand_t& event);
 
-    friend class VisitasCommands;
-    friend class LeadCommands;
-    friend class SolicitacaoCommands;
-    friend class PlacaCommands;
-    friend class CompraCommands;
-    friend class TicketCommands;
-    friend class EstoqueCommands;
-    friend class TodoCommands;
+    void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
+    void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
 };

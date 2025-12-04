@@ -94,11 +94,11 @@ void ReportGenerator::gerarPlanilhaLeads(const dpp::slashcommand_t& event, std::
 void ReportGenerator::gerarPlanilhaCompras(const dpp::slashcommand_t& event, std::optional<int64_t> mes, std::optional<int64_t> ano) {
     std::string filename_sufixo = getFilenameSufixo(mes, ano); std::time_t tt = std::time(nullptr); std::tm* agora = std::localtime(&tt); std::stringstream ss; ss << std::put_time(agora, "%d-%m-%Y"); std::string filename = "Planilha_Gastos_" + ss.str() + ".xlsx"; std::remove(filename.c_str());
     lxw_workbook* workbook = workbook_new(filename.c_str()); if (!workbook) { event.edit_original_response(dpp::message("Erro ao criar o arquivo Excel para Gastos.").set_flags(dpp::m_ephemeral)); Utils::log_to_file("ERRO FATAL: workbook_new falhou para " + filename); return; } lxw_worksheet* worksheet = workbook_add_worksheet(workbook, "Gastos"); if (!worksheet) { event.edit_original_response(dpp::message("Erro ao criar a planilha Excel para Gastos.").set_flags(dpp::m_ephemeral)); Utils::log_to_file("ERRO FATAL: workbook_add_worksheet falhou para Gastos"); workbook_close(workbook); return; }
-    worksheet_set_column(worksheet, 0, 0, 15, NULL); worksheet_set_column(worksheet, 1, 1, 40, NULL); worksheet_set_column(worksheet, 2, 2, 20, NULL); worksheet_set_column(worksheet, 3, 3, 15, NULL); worksheet_set_column(worksheet, 4, 4, 50, NULL); worksheet_set_column(worksheet, 5, 5, 25, NULL); worksheet_set_column(worksheet, 6, 6, 25, NULL);
+    worksheet_set_column(worksheet, 0, 0, 15, NULL); worksheet_set_column(worksheet, 1, 1, 40, NULL); worksheet_set_column(worksheet, 2, 2, 20, NULL); worksheet_set_column(worksheet, 3, 3, 15, NULL); worksheet_set_column(worksheet, 4, 4, 15, NULL); worksheet_set_column(worksheet, 5, 5, 50, NULL); worksheet_set_column(worksheet, 6, 6, 25, NULL); worksheet_set_column(worksheet, 7, 7, 25, NULL);
     lxw_format* header_format = workbook_add_format(workbook); format_set_bold(header_format); lxw_format* wrap_format = workbook_add_format(workbook); format_set_text_wrap(wrap_format); lxw_format* money_format = workbook_add_format(workbook); format_set_num_format(money_format, "R$ #,##0.00");
-    const char* headers[] = { "ID", "Descricao", "Local Compra", "Valor", "Observacao", "Registrado Por", "Data do Registro" }; for (int i = 0; i < 7; ++i) { worksheet_write_string(worksheet, 0, i, headers[i], header_format); }
+    const char* headers[] = { "ID", "Descricao", "Local Compra", "Categoria", "Unidade", "Valor", "Observacao", "Registrado Por", "Data do Registro" }; for (int i = 0; i < 9; ++i) { worksheet_write_string(worksheet, 0, i, headers[i], header_format); }
     const auto& compras_map = db_.getCompras(); int row = 1;
-    for (const auto& [id, compra] : compras_map) { if (checkTimestampFilter(compra.data_registro, mes, ano)) { worksheet_write_number(worksheet, row, 0, compra.id, NULL); worksheet_write_string(worksheet, row, 1, compra.descricao.c_str(), NULL); worksheet_write_string(worksheet, row, 2, compra.local_compra.c_str(), NULL); worksheet_write_number(worksheet, row, 3, compra.valor, money_format); worksheet_write_string(worksheet, row, 4, compra.observacao.c_str(), wrap_format); worksheet_write_string(worksheet, row, 5, compra.registrado_por.c_str(), NULL); worksheet_write_string(worksheet, row, 6, compra.data_registro.c_str(), NULL); row++; } }
+    for (const auto& [id, compra] : compras_map) { if (checkTimestampFilter(compra.data_registro, mes, ano)) { worksheet_write_number(worksheet, row, 0, compra.id, NULL); worksheet_write_string(worksheet, row, 1, compra.descricao.c_str(), NULL); worksheet_write_string(worksheet, row, 2, compra.local_compra.c_str(), NULL); worksheet_write_string(worksheet, row, 3, compra.categoria.c_str(), NULL); worksheet_write_string(worksheet, row, 4, compra.unidade.c_str(), NULL); worksheet_write_number(worksheet, row, 5, compra.valor, money_format); worksheet_write_string(worksheet, row, 6, compra.observacao.c_str(), wrap_format); worksheet_write_string(worksheet, row, 7, compra.registrado_por.c_str(), NULL); worksheet_write_string(worksheet, row, 8, compra.data_registro.c_str(), NULL); row++; } }
     if (row == 1) { worksheet_write_string(worksheet, 1, 0, "Nenhum gasto encontrado para o filtro selecionado.", NULL); }
     if (workbook_close(workbook) != LXW_NO_ERROR) { event.edit_original_response(dpp::message("Erro ao finalizar e salvar o arquivo Excel para Gastos.").set_flags(dpp::m_ephemeral)); Utils::log_to_file("ERRO: workbook_close falhou para " + filename); return; }
     dpp::message msg; msg.set_content("Aqui está a planilha de registros de gastos!"); try { msg.add_file(filename, dpp::utility::read_file(filename)); dpp::slashcommand_t event_copy = event; std::string captured_filename = filename; event.edit_original_response(msg, [this, event_copy, captured_filename](const dpp::confirmation_callback_t& cb) { if (!cb.is_error()) { bot_.start_timer([this, event_copy](dpp::timer th) mutable { event_copy.delete_original_response([](const auto& dcb) { if (dcb.is_error() && dcb.get_error().code != 10062) { Utils::log_to_file("Falha ao deletar resposta (planilha gastos): " + dcb.get_error().message); }}); bot_.stop_timer(th); }, 10); bot_.start_timer([this, captured_filename](dpp::timer timer_handle) { if (std::remove(captured_filename.c_str()) == 0) { Utils::log_to_file("Arquivo de planilha removido com sucesso: " + captured_filename); } else { Utils::log_to_file("AVISO: Falha ao remover arquivo de planilha: " + captured_filename); } bot_.stop_timer(timer_handle); }, 900); } else { Utils::log_to_file("Falha ao editar resposta original com planilha gastos: " + cb.get_error().message); } }); }
@@ -129,7 +129,7 @@ void ReportGenerator::gerarPlanilhaDemandas(const dpp::slashcommand_t& event, st
 
     worksheet_set_column(worksheet, 0, 0, 15, NULL); // ID
     worksheet_set_column(worksheet, 1, 1, 12, NULL); // Tipo
-    worksheet_set_column(worksheet, 2, 2, 12, NULL); // Status
+    worksheet_set_column(worksheet, 2, 2, 25, NULL); // Status
     worksheet_set_column(worksheet, 3, 3, 12, NULL); // Prioridade (NOVO)
     worksheet_set_column(worksheet, 4, 4, 25, NULL); // Responsavel
     worksheet_set_column(worksheet, 5, 5, 70, NULL); // Texto
@@ -137,14 +137,16 @@ void ReportGenerator::gerarPlanilhaDemandas(const dpp::slashcommand_t& event, st
     worksheet_set_column(worksheet, 7, 7, 20, NULL); // Prazo
     worksheet_set_column(worksheet, 8, 8, 20, NULL); // Data Finalizacao
     worksheet_set_column(worksheet, 9, 9, 40, NULL); // Anexo
+    worksheet_set_column(worksheet, 10, 10, 20, NULL); // Anexo
 
     lxw_format* header_format = workbook_add_format(workbook); format_set_bold(header_format);
     lxw_format* wrap_format = workbook_add_format(workbook); format_set_text_wrap(wrap_format);
-    lxw_format* finalizada_format = workbook_add_format(workbook); format_set_bg_color(finalizada_format, LXW_COLOR_GREEN); format_set_font_color(finalizada_format, LXW_COLOR_WHITE);
-    lxw_format* cancelada_format = workbook_add_format(workbook); format_set_bg_color(cancelada_format, LXW_COLOR_RED); format_set_font_color(cancelada_format, LXW_COLOR_WHITE);
+    lxw_format* fmt_green = workbook_add_format(workbook); format_set_bg_color(fmt_green, LXW_COLOR_GREEN); format_set_font_color(fmt_green, LXW_COLOR_WHITE);
+    lxw_format* fmt_red = workbook_add_format(workbook); format_set_bg_color(fmt_red, LXW_COLOR_RED); format_set_font_color(fmt_red, LXW_COLOR_WHITE);
+    lxw_format* fmt_orange = workbook_add_format(workbook); format_set_bg_color(fmt_orange, LXW_COLOR_ORANGE); format_set_font_color(fmt_orange, LXW_COLOR_WHITE);
 
-    const char* headers[] = { "ID", "Tipo", "Status", "Prioridade", "Responsavel", "Descricao", "Data Criacao", "Prazo", "Data Finalizacao", "Anexo" };
-    for (int i = 0; i < 10; ++i) { worksheet_write_string(worksheet, 0, i, headers[i], header_format); }
+    const char* headers[] = { "ID", "Tipo", "Status", "Prioridade", "Responsavel", "Descricao", "Data Criacao", "Prazo", "Data Finalizacao", "Obs Final", "Anexo" };
+    for (int i = 0; i < 11; ++i) { worksheet_write_string(worksheet, 0, i, headers[i], header_format); }
 
     const auto& solicitacoes_map = db_.getSolicitacoes();
     int row = 1;
@@ -164,8 +166,24 @@ void ReportGenerator::gerarPlanilhaDemandas(const dpp::slashcommand_t& event, st
         }
 
         lxw_format* status_format = NULL;
-        if (sol.status == "finalizada") { status_format = finalizada_format; }
-        else if (sol.status == "cancelada") { status_format = cancelada_format; }
+        std::string status_text = sol.status;
+
+        if (sol.status == "pendente") {
+            if (sol.tipo == DEMANDA && Utils::dataPassada(sol.prazo)) {
+                status_text = "ATRASADA";
+                status_format = fmt_red;
+            }
+        }
+        else if (sol.status == "finalizada") {
+            status_format = fmt_green;
+            if (sol.tipo == DEMANDA && Utils::compararDatas(sol.data_finalizacao, sol.prazo) == 1) {
+                status_text = "FINALIZADA COM ATRASO";
+                status_format = fmt_orange;
+            }
+        }
+        else if (sol.status == "cancelada") {
+            status_format = fmt_red;
+        }
 
         std::string prioridade_str = "Média";
         if (sol.prioridade == 2) prioridade_str = "Alta";
@@ -173,14 +191,15 @@ void ReportGenerator::gerarPlanilhaDemandas(const dpp::slashcommand_t& event, st
 
         worksheet_write_number(worksheet, row, 0, sol.id, NULL);
         worksheet_write_string(worksheet, row, 1, tipoSolicitacaoToString(sol.tipo).c_str(), NULL);
-        worksheet_write_string(worksheet, row, 2, sol.status.c_str(), status_format);
+        worksheet_write_string(worksheet, row, 2, status_text.c_str(), status_format);
         worksheet_write_string(worksheet, row, 3, prioridade_str.c_str(), NULL);
         worksheet_write_string(worksheet, row, 4, sol.nome_usuario_responsavel.c_str(), NULL);
         worksheet_write_string(worksheet, row, 5, sol.texto.c_str(), wrap_format);
         worksheet_write_string(worksheet, row, 6, sol.data_criacao.c_str(), NULL);
         worksheet_write_string(worksheet, row, 7, sol.prazo.c_str(), NULL);
         worksheet_write_string(worksheet, row, 8, sol.data_finalizacao.c_str(), NULL);
-        worksheet_write_string(worksheet, row, 9, sol.anexo_path.c_str(), NULL);
+        worksheet_write_string(worksheet, row, 9, sol.observacao_finalizacao.c_str(), wrap_format);
+        worksheet_write_string(worksheet, row, 10, sol.anexo_path.c_str(), NULL);
         row++;
     }
 
@@ -263,4 +282,61 @@ void ReportGenerator::gerarPlanilhaReposicao(const dpp::slashcommand_t& event) {
             });
     }
     catch (...) { event.edit_original_response(dpp::message("Erro ao enviar o arquivo.").set_flags(dpp::m_ephemeral)); }
+}
+
+void ReportGenerator::gerarPlanilhaRelatoriosDiarios(const dpp::slashcommand_t& event, dpp::snowflake user_id, std::optional<int64_t> mes, std::optional<int64_t> ano) {
+    std::string filename = "Relatorios_Funcionario_" + std::to_string(user_id) + ".xlsx";
+    lxw_workbook* workbook = workbook_new(filename.c_str());
+    lxw_worksheet* worksheet = workbook_add_worksheet(workbook, "Relatorios");
+
+    worksheet_set_column(worksheet, 0, 0, 20, NULL); // Data
+    worksheet_set_column(worksheet, 1, 1, 100, NULL); // Conteúdo (Largo)
+
+    lxw_format* header = workbook_add_format(workbook); format_set_bold(header);
+    lxw_format* wrap = workbook_add_format(workbook); format_set_text_wrap(wrap);
+    format_set_align(wrap, LXW_ALIGN_VERTICAL_TOP);
+
+    worksheet_write_string(worksheet, 0, 0, "Data/Hora", header);
+    worksheet_write_string(worksheet, 0, 1, "Relatório de Atividades", header);
+
+    const auto& rels = db_.getRelatorios();
+    std::vector<RelatorioDiario> user_rels;
+
+    for (const auto& [id, r] : rels) {
+        if (r.user_id == user_id) {
+            if (mes.has_value() || ano.has_value()) {
+                std::tm tm = {};
+                std::stringstream ss(r.data_hora);
+                ss >> std::get_time(&tm, "%d/%m/%Y");
+                if (!ss.fail()) {
+                    bool mes_ok = !mes.has_value() || (tm.tm_mon + 1 == mes.value());
+                    bool ano_ok = !ano.has_value() || (tm.tm_year + 1900 == ano.value());
+                    if (!mes_ok || !ano_ok) continue;
+                }
+            }
+            user_rels.push_back(r);
+        }
+    }
+
+    int row = 1;
+    for (const auto& r : user_rels) {
+        worksheet_write_string(worksheet, row, 0, r.data_hora.c_str(), NULL);
+        worksheet_write_string(worksheet, row, 1, r.conteudo.c_str(), wrap);
+        row++;
+    }
+
+    if (workbook_close(workbook) == LXW_NO_ERROR) {
+        dpp::message msg("Histórico de Relatórios Diários");
+        try {
+            msg.add_file(filename, dpp::utility::read_file(filename));
+            dpp::slashcommand_t event_copy = event;
+            event.edit_original_response(msg, [event_copy, filename](auto) { std::remove(filename.c_str()); });
+        }
+        catch (...) {
+            event.edit_original_response(dpp::message("Erro ao enviar arquivo."));
+        }
+    }
+    else {
+        event.edit_original_response(dpp::message("Erro ao gerar arquivo excel."));
+    }
 }
