@@ -22,56 +22,38 @@ void CompraCommands::handle_adicionar_compra(const dpp::slashcommand_t& event) {
     nova_compra.unidade = std::get<std::string>(event.get_parameter("unidade"));
 
     auto obs_param = event.get_parameter("observacao");
-    if (auto val_ptr = std::get_if<std::string>(&obs_param)) {
-        nova_compra.observacao = *val_ptr;
-    }
-    else {
-        nova_compra.observacao = "Nenhuma.";
-    }
+    if (auto val_ptr = std::get_if<std::string>(&obs_param)) nova_compra.observacao = *val_ptr;
+    else nova_compra.observacao = "Nenhuma.";
 
     nova_compra.registrado_por = event.command.get_issuing_user().username;
     nova_compra.data_registro = Utils::format_timestamp(std::time(nullptr));
 
     if (db_.addOrUpdateCompra(nova_compra)) {
-        std::stringstream ss;
-        ss << "R$ " << std::fixed << std::setprecision(2) << nova_compra.valor;
-        std::string valor_formatado = ss.str();
+        std::stringstream ss; ss << "R$ " << std::fixed << std::setprecision(2) << nova_compra.valor;
 
-        dpp::embed embed = dpp::embed()
-            .set_color(dpp::colors::light_sea_green)
-            .set_title("💳 Novo Gasto Registrado")
-            .add_field("Descrição", nova_compra.descricao, false)
+        dpp::embed embed = Utils::criarEmbedPadrao("💳 Novo Gasto Registrado", "", dpp::colors::light_sea_green);
+        embed.add_field("Descrição", nova_compra.descricao, false)
             .add_field("Categoria", nova_compra.categoria, true)
             .add_field("Unidade", nova_compra.unidade, true)
             .add_field("Local", nova_compra.local_compra, true)
-            .add_field("Valor", valor_formatado, true)
-            .add_field("Observação", nova_compra.observacao, false)
+            .add_field("Valor", ss.str(), true)
+            .add_field("Obs", nova_compra.observacao, false)
             .set_footer(dpp::embed_footer().set_text("Registrado por: " + nova_compra.registrado_por));
 
-        event.reply(dpp::message().add_embed(embed));
+        cmdHandler_.replyAndDelete(event, dpp::message().add_embed(embed));
     }
     else {
-        event.reply(dpp::message("❌ Erro ao salvar o registro no banco de dados.").set_flags(dpp::m_ephemeral));
+        cmdHandler_.replyAndDelete(event, dpp::message("❌ Erro ao salvar."));
     }
 }
 
 void CompraCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id) {
-    dpp::slashcommand cmd("registrar_gasto", "Registra um novo gasto.", bot_id);
-    cmd.add_option(dpp::command_option(dpp::co_string, "descricao", "Descrição do gasto.", true));
-    cmd.add_option(dpp::command_option(dpp::co_string, "local", "Local da compra.", true));
-    cmd.add_option(dpp::command_option(dpp::co_number, "valor", "Valor (ex: 123.45).", true).set_min_value(0.01));
-    cmd.add_option(dpp::command_option(dpp::co_string, "categoria", "Categoria.", true)
-        .add_choice(dpp::command_option_choice("Café", std::string("Café")))
-        .add_choice(dpp::command_option_choice("ASB", std::string("ASB")))
-        .add_choice(dpp::command_option_choice("Faxina", std::string("Faxina")))
-        .add_choice(dpp::command_option_choice("Papelaria", std::string("Papelaria")))
-        .add_choice(dpp::command_option_choice("Outros", std::string("Outros")))
-    );
-    cmd.add_option(dpp::command_option(dpp::co_string, "unidade", "Unidade.", true)
-        .add_choice(dpp::command_option_choice("Tatuapé", std::string("Tatuapé")))
-        .add_choice(dpp::command_option_choice("Campo Belo", std::string("Campo Belo")))
-        .add_choice(dpp::command_option_choice("Ambas", std::string("Ambas")))
-    );
-    cmd.add_option(dpp::command_option(dpp::co_string, "observacao", "Observação.", false));
+    dpp::slashcommand cmd("registrar_gasto", "Registra gasto.", bot_id);
+    cmd.add_option(dpp::command_option(dpp::co_string, "descricao", "Desc.", true));
+    cmd.add_option(dpp::command_option(dpp::co_string, "local", "Local.", true));
+    cmd.add_option(dpp::command_option(dpp::co_number, "valor", "R$", true).set_min_value(0.01));
+    cmd.add_option(dpp::command_option(dpp::co_string, "categoria", "Cat.", true).add_choice(dpp::command_option_choice("Café", "Café")).add_choice(dpp::command_option_choice("ASB", "ASB")).add_choice(dpp::command_option_choice("Faxina", "Faxina")).add_choice(dpp::command_option_choice("Papelaria", "Papelaria")).add_choice(dpp::command_option_choice("Outros", "Outros")));
+    cmd.add_option(dpp::command_option(dpp::co_string, "unidade", "Local.", true).add_choice(dpp::command_option_choice("Tatuapé", "Tatuapé")).add_choice(dpp::command_option_choice("Campo Belo", "Campo Belo")).add_choice(dpp::command_option_choice("Ambas", "Ambas")));
+    cmd.add_option(dpp::command_option(dpp::co_string, "observacao", "Obs.", false));
     commands.push_back(cmd);
 }

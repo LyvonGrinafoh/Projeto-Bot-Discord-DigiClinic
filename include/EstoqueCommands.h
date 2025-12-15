@@ -21,5 +21,6 @@ public:
     void handle_estoque_remove(const dpp::slashcommand_t& event);
     void handle_estoque_lista(const dpp::slashcommand_t& event);
     void handle_estoque_delete(const dpp::slashcommand_t& event);
+    void handle_estoque_modificar(const dpp::slashcommand_t& event);
     static void addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id);
 };

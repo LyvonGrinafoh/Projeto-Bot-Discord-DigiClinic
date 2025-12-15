@@ -3,12 +3,16 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <nlohmann/json.hpp> 
+
+using json = nlohmann::json;
 
 bool ConfigManager::load(const std::string& filename) {
     std::ifstream config_file(filename);
     if (!config_file.is_open()) {
         std::cerr << "AVISO: Arquivo " << filename << " nao encontrado. Criando um novo..." << std::endl;
         Utils::log_to_file("AVISO: Arquivo " + filename + " nao encontrado. Criando um novo...");
+
         json j;
         j["BOT_TOKEN"] = "SEU_TOKEN_AQUI";
         j["SEU_SERVER_ID"] = 0;
@@ -43,32 +47,49 @@ bool ConfigManager::load(const std::string& filename) {
     json j;
     try {
         config_file >> j;
-        config_.token = j.at("BOT_TOKEN").get<std::string>();
-        config_.server_id = j.at("SEU_SERVER_ID").get<dpp::snowflake>();
-        config_.canal_visitas = j.at("CANAIS").at("VISITAS").get<dpp::snowflake>();
-        config_.canal_aviso_demandas = j.at("CANAIS").at("AVISO_DEMANDAS").get<dpp::snowflake>();
-        config_.canal_finalizadas = j.at("CANAIS").at("FINALIZADAS").get<dpp::snowflake>();
-        config_.canal_logs = j.at("CANAIS").at("LOGS").get<dpp::snowflake>();
-        config_.canal_aviso_pedidos = j.at("CANAIS").at("AVISO_PEDIDOS").get<dpp::snowflake>();
-        config_.canal_pedidos_concluidos = j.at("CANAIS").at("PEDIDOS_CONCLUIDOS").get<dpp::snowflake>();
-        config_.canal_solicitacao_placas = j.at("CANAIS").at("SOLICITACAO_PLACAS").get<dpp::snowflake>();
-        config_.canal_placas_finalizadas = j.at("CANAIS").at("PLACAS_FINALIZADAS").get<dpp::snowflake>();
-        config_.canal_sugestoes = j.at("CANAIS").at("SUGESTOES").get<dpp::snowflake>();
-        config_.canal_bugs = j.at("CANAIS").at("BUGS").get<dpp::snowflake>();
+        if (j.contains("BOT_TOKEN")) config_.token = j.at("BOT_TOKEN").get<std::string>();
+        if (j.contains("SEU_SERVER_ID")) config_.server_id = j.at("SEU_SERVER_ID").get<uint64_t>();
 
-        config_.cargo_permitido = j.at("CARGOS").at("PERMITIDO").get<dpp::snowflake>();
+        if (j.contains("CANAIS")) {
+            auto& c = j["CANAIS"];
+            if (c.contains("VISITAS")) config_.canal_visitas = c["VISITAS"].get<uint64_t>();
+            if (c.contains("AVISO_DEMANDAS")) config_.canal_aviso_demandas = c["AVISO_DEMANDAS"].get<uint64_t>();
+            if (c.contains("FINALIZADAS")) config_.canal_finalizadas = c["FINALIZADAS"].get<uint64_t>();
+            if (c.contains("LOGS")) config_.canal_logs = c["LOGS"].get<uint64_t>();
+            if (c.contains("AVISO_PEDIDOS")) config_.canal_aviso_pedidos = c["AVISO_PEDIDOS"].get<uint64_t>();
+            if (c.contains("PEDIDOS_CONCLUIDOS")) config_.canal_pedidos_concluidos = c["PEDIDOS_CONCLUIDOS"].get<uint64_t>();
+            if (c.contains("SOLICITACAO_PLACAS")) config_.canal_solicitacao_placas = c["SOLICITACAO_PLACAS"].get<uint64_t>();
+            if (c.contains("PLACAS_FINALIZADAS")) config_.canal_placas_finalizadas = c["PLACAS_FINALIZADAS"].get<uint64_t>();
+            if (c.contains("SUGESTOES")) config_.canal_sugestoes = c["SUGESTOES"].get<uint64_t>();
+            if (c.contains("BUGS")) config_.canal_bugs = c["BUGS"].get<uint64_t>();
+        }
 
-        if (j.at("CARGOS").contains("TATUAPE")) config_.cargo_tatuape = j.at("CARGOS").at("TATUAPE").get<dpp::snowflake>();
-        if (j.at("CARGOS").contains("CAMPO_BELO")) config_.cargo_campo_belo = j.at("CARGOS").at("CAMPO_BELO").get<dpp::snowflake>();
-        if (j.at("CARGOS").contains("ADM")) config_.cargo_adm = j.at("CARGOS").at("ADM").get<dpp::snowflake>();
+        if (j.contains("CARGOS")) {
+            auto& c = j["CARGOS"];
+            if (c.contains("PERMITIDO")) config_.cargo_permitido = c["PERMITIDO"].get<uint64_t>();
+            if (c.contains("TATUAPE")) config_.cargo_tatuape = c["TATUAPE"].get<uint64_t>();
+            if (c.contains("CAMPO_BELO")) config_.cargo_campo_belo = c["CAMPO_BELO"].get<uint64_t>();
+            if (c.contains("ADM")) config_.cargo_adm = c["ADM"].get<uint64_t>();
+        }
 
-        config_.canais_so_imagens = j.at("CANAIS_RESTRITOS").at("SO_IMAGENS").get<std::vector<dpp::snowflake>>();
-        config_.canais_so_links = j.at("CANAIS_RESTRITOS").at("SO_LINKS").get<std::vector<dpp::snowflake>>();
-        config_.canais_so_documentos = j.at("CANAIS_RESTRITOS").at("SO_DOCUMENTOS").get<std::vector<dpp::snowflake>>();
+        if (j.contains("CANAIS_RESTRITOS")) {
+            auto& c = j["CANAIS_RESTRITOS"];
+            if (c.contains("SO_IMAGENS") && c["SO_IMAGENS"].is_array()) {
+                config_.canais_so_imagens.clear();
+                for (const auto& val : c["SO_IMAGENS"]) config_.canais_so_imagens.push_back(val.get<uint64_t>());
+            }
+            if (c.contains("SO_LINKS") && c["SO_LINKS"].is_array()) {
+                config_.canais_so_links.clear();
+                for (const auto& val : c["SO_LINKS"]) config_.canais_so_links.push_back(val.get<uint64_t>());
+            }
+            if (c.contains("SO_DOCUMENTOS") && c["SO_DOCUMENTOS"].is_array()) {
+                config_.canais_so_documentos.clear();
+                for (const auto& val : c["SO_DOCUMENTOS"]) config_.canais_so_documentos.push_back(val.get<uint64_t>());
+            }
+        }
     }
     catch (const json::exception& e) {
         std::cerr << "ERRO FATAL: Erro ao ler " << filename << ": " << e.what() << std::endl;
-        std::cerr << "Verifique se o arquivo " << filename << " esta formatado corretamente." << std::endl;
         Utils::log_to_file("ERRO FATAL: Erro ao ler " + filename + ": " + std::string(e.what()));
         loaded_ = false;
         return false;
@@ -86,12 +107,8 @@ bool ConfigManager::load(const std::string& filename) {
 }
 
 const BotConfig& ConfigManager::getConfig() const {
-    if (!loaded_) {
-        throw std::runtime_error("ConfigManager: Tentativa de acessar configuracao nao carregada.");
-    }
+    if (!loaded_) throw std::runtime_error("ConfigManager: Tentativa de acessar configuracao nao carregada.");
     return config_;
 }
 
-bool ConfigManager::isLoaded() const {
-    return loaded_;
-}
+bool ConfigManager::isLoaded() const { return loaded_; }

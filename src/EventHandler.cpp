@@ -40,6 +40,15 @@ void EventHandler::onMessageDelete(const dpp::message_delete_t& event) {
 void EventHandler::onMessageReactionAdd(const dpp::message_reaction_add_t& event) {
     if (event.reacting_user.is_bot()) return;
 
+    if (event.reacting_emoji.name == "🗑️") {
+        bot_.message_delete(event.message_id, event.channel_id);
+        std::lock_guard<std::mutex> lock(pagination_mutex_);
+        if (active_paginations_.count(event.message_id)) {
+            active_paginations_.erase(event.message_id);
+        }
+        return;
+    }
+
     std::lock_guard<std::mutex> lock(pagination_mutex_);
     auto it = active_paginations_.find(event.message_id);
 
@@ -47,12 +56,6 @@ void EventHandler::onMessageReactionAdd(const dpp::message_reaction_add_t& event
         PaginationState& state = it->second;
 
         if (event.reacting_user.id != state.originalUserID) {
-            return;
-        }
-
-        if (event.reacting_emoji.name == "🗑️") {
-            bot_.message_delete(event.message_id, event.channel_id);
-            active_paginations_.erase(it);
             return;
         }
 
@@ -77,7 +80,6 @@ void EventHandler::onMessageReactionAdd(const dpp::message_reaction_add_t& event
             dpp::message m(event.channel_id, newEmbed);
             m.id = event.message_id;
             bot_.message_edit(m);
-
             bot_.message_delete_reaction(m, event.reacting_user.id, event.reacting_emoji.name);
         }
     }
@@ -86,9 +88,7 @@ void EventHandler::onMessageReactionAdd(const dpp::message_reaction_add_t& event
 void EventHandler::onButtonClickListener(const dpp::button_click_t& event) {
     if (event.custom_id.rfind("btn_fin_", 0) == 0) {
         std::string codigo_str = event.custom_id.substr(8);
-
         dpp::interaction_modal_response modal("modal_fin_" + codigo_str, "Finalizar Solicitação #" + codigo_str);
-
         modal.add_component(
             dpp::component().set_label("Observação (Opcional)")
             .set_id("obs_field")
@@ -99,13 +99,11 @@ void EventHandler::onButtonClickListener(const dpp::button_click_t& event) {
             .set_text_style(dpp::text_paragraph)
             .set_required(false)
         );
-
         event.dialog(modal);
     }
 }
 
 void EventHandler::onFormSubmitListener(const dpp::form_submit_t& event) {
-    // --- LÓGICA DO RELATÓRIO DO DIA ---
     if (event.custom_id == "modal_relatorio_dia") {
         std::string conteudo = std::get<std::string>(event.components[0].components[0].value);
         dpp::user u = event.command.get_issuing_user();
@@ -118,14 +116,10 @@ void EventHandler::onFormSubmitListener(const dpp::form_submit_t& event) {
         rel.conteudo = conteudo;
 
         if (db_.addOrUpdateRelatorio(rel)) {
-            event.reply(dpp::message("✅ Relatório diário registrado com sucesso! Bom descanso.").set_flags(dpp::m_ephemeral));
-
-            // Log no canal de logs para os chefes verem
-            dpp::embed log_embed = dpp::embed().set_title("📄 Relatório Diário Enviado").set_color(dpp::colors::blue);
+            event.reply(dpp::message("✅ Relatório diário registrado com sucesso!").set_flags(dpp::m_ephemeral));
+            dpp::embed log_embed = Utils::criarEmbedPadrao("📄 Relatório Diário Enviado", conteudo, dpp::colors::blue);
             log_embed.add_field("Funcionário", u.get_mention(), true);
             log_embed.add_field("Data", rel.data_hora, true);
-            log_embed.add_field("Conteúdo", conteudo, false);
-
             bot_.message_create(dpp::message(configManager_.getConfig().canal_logs, log_embed));
         }
         else {
@@ -134,13 +128,10 @@ void EventHandler::onFormSubmitListener(const dpp::form_submit_t& event) {
         return;
     }
 
-    // --- LÓGICA DE FINALIZAR DEMANDA (EXISTENTE) ---
     if (event.custom_id.rfind("modal_fin_", 0) == 0) {
         std::string codigo_str = event.custom_id.substr(10);
         uint64_t codigo = 0;
-        try {
-            codigo = std::stoull(codigo_str);
-        }
+        try { codigo = std::stoull(codigo_str); }
         catch (...) { return; }
 
         std::string observacao = std::get<std::string>(event.components[0].components[0].value);
@@ -165,7 +156,6 @@ void EventHandler::onFormSubmitListener(const dpp::form_submit_t& event) {
         if (db_.addOrUpdateSolicitacao(sol)) {
             dpp::snowflake channel_id = 0;
             std::string title = "";
-
             if (sol.tipo == DEMANDA) {
                 channel_id = configManager_.getConfig().canal_finalizadas;
                 title = "✅ Demanda Finalizada";
@@ -176,11 +166,10 @@ void EventHandler::onFormSubmitListener(const dpp::form_submit_t& event) {
             }
 
             if (channel_id != 0) {
-                dpp::embed embed = dpp::embed().set_color(dpp::colors::dark_green).set_title(title)
-                    .add_field("Código", std::to_string(sol.id), false)
+                dpp::embed embed = Utils::criarEmbedPadrao(title, sol.texto, dpp::colors::dark_green);
+                embed.add_field("Código", std::to_string(sol.id), false)
                     .add_field("Responsável", "<@" + std::to_string(sol.id_usuario_responsavel) + ">", true)
-                    .add_field("Finalizado por", event.command.get_issuing_user().get_mention(), true)
-                    .add_field("Descrição", sol.texto, false);
+                    .add_field("Finalizado por", event.command.get_issuing_user().get_mention(), true);
 
                 if (sol.tipo == DEMANDA) {
                     std::string prazo_desc = sol.prazo;
@@ -189,11 +178,9 @@ void EventHandler::onFormSubmitListener(const dpp::form_submit_t& event) {
                     }
                     embed.add_field("Prazo", prazo_desc, true);
                 }
-
                 if (!observacao.empty()) { embed.add_field("Observação", observacao, false); }
                 bot_.message_create(dpp::message(channel_id, embed));
             }
-
             event.reply(dpp::message("Solicitação finalizada com sucesso!"));
         }
         else {

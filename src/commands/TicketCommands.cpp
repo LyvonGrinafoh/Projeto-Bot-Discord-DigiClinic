@@ -1,107 +1,115 @@
 ﻿#include "TicketCommands.h"
 #include "TicketManager.h"
 #include "CommandHandler.h"
-#include "ConfigManager.h"
 #include "Utils.h"
-#include <iostream>
-#include <string>
-#include <vector>
-#include <fstream>
-#include <variant>
-#include <filesystem>
-#include <algorithm>
+#include <sstream>
 
-TicketCommands::TicketCommands(dpp::cluster& bot, TicketManager& tm, const BotConfig& config, CommandHandler& handler) :
-    bot_(bot), ticketManager_(tm), config_(config), cmdHandler_(handler) {
+TicketCommands::TicketCommands(dpp::cluster& bot, TicketManager& tm, const BotConfig& config, CommandHandler& handler)
+    : bot_(bot), ticketManager_(tm), config_(config), cmdHandler_(handler) {
 }
 
 void TicketCommands::handle_chamar(const dpp::slashcommand_t& event) {
-    dpp::user author = event.command.get_issuing_user();
-    dpp::user target_user = event.command.get_resolved_user(std::get<dpp::snowflake>(event.get_parameter("usuario")));
-    std::string assunto = std::get<std::string>(event.get_parameter("assunto"));
-
-    if (target_user.is_bot() || target_user.id == author.id) {
-        event.reply(dpp::message("Inválido.").set_flags(dpp::m_ephemeral));
-        return;
+    // 1. Verificar canal (opcional)
+    if (event.command.channel_id != config_.canal_sugestoes && event.command.channel_id != config_.canal_bugs) {
+        // Logica opcional de restricao
     }
 
+    dpp::user user = event.command.get_issuing_user();
+    std::string assunto = std::get<std::string>(event.get_parameter("motivo"));
+
     event.thinking(true);
-    dpp::slashcommand_t event_copy = event;
 
-    dpp::channel ticket_channel;
-    ticket_channel.set_name("ticket-loading");
-    ticket_channel.set_guild_id(event.command.guild_id);
+    // 2. Criar canal de texto privado
+    dpp::channel new_channel;
+    new_channel.set_name("ticket-" + user.username);
+    new_channel.set_guild_id(event.command.guild_id);
+    new_channel.set_type(dpp::CHANNEL_TEXT);
 
-    std::vector<dpp::permission_overwrite> overwrites;
-    overwrites.push_back({ event.command.guild_id, 0, dpp::p_view_channel, dpp::ot_role });
-    overwrites.push_back({ author.id, dpp::p_view_channel | dpp::p_send_messages | dpp::p_attach_files, 0, dpp::ot_member });
-    overwrites.push_back({ target_user.id, dpp::p_view_channel | dpp::p_send_messages | dpp::p_attach_files, 0, dpp::ot_member });
-    overwrites.push_back({ bot_.me.id, dpp::p_view_channel | dpp::p_send_messages | dpp::p_manage_channels, 0, dpp::ot_member });
-    ticket_channel.permission_overwrites = overwrites;
 
-    bot_.channel_create(ticket_channel, [this, event_copy, author, target_user, assunto](const dpp::confirmation_callback_t& cb) {
-        if (cb.is_error()) { event_copy.edit_original_response(dpp::message("Erro ao criar canal.")); return; }
+    // @everyone: Negar ver canal
+    new_channel.permission_overwrites.push_back(
+        dpp::permission_overwrite(event.command.guild_id, 0, dpp::p_view_channel, dpp::ot_role)
+    );
 
-        dpp::channel new_channel = std::get<dpp::channel>(cb.value);
-        Ticket ticket_real = ticketManager_.createTicket(author.id, target_user.id, new_channel.id, assunto);
+    // Bot: Permitir tudo
+    new_channel.permission_overwrites.push_back(
+        dpp::permission_overwrite(bot_.me.id, dpp::p_view_channel | dpp::p_send_messages | dpp::p_manage_channels, 0, dpp::ot_member)
+    );
 
-        new_channel.set_name("ticket-" + std::to_string(ticket_real.ticket_id));
-        bot_.channel_edit(new_channel, [this, event_copy, new_channel, author, target_user, assunto, ticket_real](auto cb2) {
-            dpp::embed embed = dpp::embed().set_color(dpp::colors::green).set_title("✅ Ticket Criado: " + assunto);
-            embed.set_description("Canal: <#" + std::to_string(new_channel.id) + ">");
-            event_copy.edit_original_response(dpp::message().add_embed(embed));
+    // Usuário que abriu: Permitir ver e enviar
+    new_channel.permission_overwrites.push_back(
+        dpp::permission_overwrite(user.id, dpp::p_view_channel | dpp::p_send_messages, 0, dpp::ot_member)
+    );
 
-            bot_.message_create(dpp::message(new_channel.id, dpp::embed().set_title("Assunto: " + assunto).set_description("Ticket entre " + author.get_mention() + " e " + target_user.get_mention())));
+    // Cargo ADM: Permitir ver e enviar
+    if (config_.cargo_adm) {
+        new_channel.permission_overwrites.push_back(
+            dpp::permission_overwrite(config_.cargo_adm, dpp::p_view_channel | dpp::p_send_messages, 0, dpp::ot_role)
+        );
+    }
+    // -------------------------------------------------------------
 
-            bot_.message_create(dpp::message(event_copy.command.channel_id, target_user.get_mention() + ", novo ticket de " + author.get_mention() + ": " + assunto));
-            bot_.direct_message_create(target_user.id, dpp::message("Novo ticket criado com você. Assunto: " + assunto + "\nCanal: <#" + std::to_string(new_channel.id) + ">"));
-            });
+    bot_.channel_create(new_channel, [this, event, user, assunto](const dpp::confirmation_callback_t& cb) {
+        if (cb.is_error()) {
+            event.edit_response("❌ Erro ao criar canal do ticket: " + cb.get_error().message);
+            return;
+        }
+
+        dpp::channel created_channel = std::get<dpp::channel>(cb.value);
+
+        // Criar ticket no DB
+        Ticket t = ticketManager_.createTicket(user.id, 0, created_channel.id, assunto);
+
+        // Mensagem de boas-vindas
+        dpp::embed embed = Utils::criarEmbedPadrao("🎫 Ticket #" + std::to_string(t.ticket_id),
+            "Olá " + user.get_mention() + "!\n\nDescreva seu problema aqui. Um administrador irá atendê-lo em breve.\n**Assunto:** " + assunto,
+            dpp::colors::green);
+
+        dpp::message msg(created_channel.id, embed);
+        msg.add_component(dpp::component().add_component(
+            dpp::component().set_type(dpp::cot_button).set_label("🔒 Finalizar Ticket").set_style(dpp::cos_danger).set_id("btn_finalizar_ticket")
+        ));
+
+        bot_.message_create(msg);
+        event.edit_response("✅ Ticket criado: " + created_channel.get_mention());
         });
 }
 
 void TicketCommands::handle_finalizar_ticket(const dpp::slashcommand_t& event) {
-    dpp::user closer = event.command.get_issuing_user();
     auto ticket_opt = ticketManager_.findTicketByChannel(event.command.channel_id);
 
-    if (!ticket_opt) { event.reply(dpp::message("Não é um canal de ticket.").set_flags(dpp::m_ephemeral)); return; }
-    Ticket t = *ticket_opt;
+    if (!ticket_opt.has_value()) {
+        event.reply(dpp::message("❌ Este comando só funciona em canais de ticket abertos.").set_flags(dpp::m_ephemeral));
+        return;
+    }
 
-    cmdHandler_.replyAndDelete(event, dpp::message("Fechando..."));
+    event.thinking(false);
+    Ticket t = ticket_opt.value();
 
-    std::string log = ticketManager_.getAndRemoveLog(t.channel_id);
-    std::string filename = "Ticket_" + std::to_string(t.ticket_id) + ".txt";
-    std::ofstream(filename) << "Assunto: " << t.nome_ticket << "\n\n" << log;
+    std::string log_content = ticketManager_.getAndRemoveLog(t.channel_id);
+    std::string filename = "logs/ticket_" + std::to_string(t.ticket_id) + ".txt";
 
-    bot_.channel_delete(t.channel_id, [this, t, closer, filename](auto cb) {
-        ticketManager_.arquivarTicket(t.ticket_id, filename);
-        dpp::embed embed = dpp::embed().set_color(dpp::colors::red).set_title("Ticket Fechado: " + t.nome_ticket);
-        embed.set_description("Fechado por " + closer.get_mention());
-        bot_.message_create(dpp::message(config_.canal_logs, embed));
-        });
+
+    ticketManager_.arquivarTicket(t.ticket_id, filename);
+
+    dpp::embed embed = Utils::criarEmbedPadrao("🔒 Ticket Fechado", "Este ticket será excluído em 5 segundos.", dpp::colors::red);
+    event.edit_response(dpp::message(event.command.channel_id, embed));
+
+    bot_.start_timer([this, channel_id = t.channel_id](dpp::timer h) {
+        bot_.channel_delete(channel_id);
+        bot_.stop_timer(h);
+        }, 5);
 }
 
 void TicketCommands::handle_ver_log(const dpp::slashcommand_t& event) {
-    int64_t id = std::get<int64_t>(event.get_parameter("codigo"));
-    auto t = ticketManager_.findTicketById(id);
-    if (t && std::filesystem::exists(t->log_filename)) {
-        dpp::message msg; msg.add_file(t->log_filename, dpp::utility::read_file(t->log_filename));
-        event.reply(msg);
-    }
-    else {
-        event.reply(dpp::message("Log não encontrado."));
-    }
+    event.reply(dpp::message("📄 Funcionalidade em desenvolvimento.").set_flags(dpp::m_ephemeral));
 }
 
 void TicketCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id, const BotConfig& config) {
-    dpp::slashcommand chamar("chamar", "Abre ticket.", bot_id);
-    chamar.add_option(dpp::command_option(dpp::co_user, "usuario", "Usuário.", true));
-    chamar.add_option(dpp::command_option(dpp::co_string, "assunto", "Motivo do ticket.", true));
+    dpp::slashcommand chamar("chamar", "Abre um ticket de suporte.", bot_id);
+    chamar.add_option(dpp::command_option(dpp::co_string, "motivo", "Motivo do contato", true));
     commands.push_back(chamar);
 
-    dpp::slashcommand finalizar("finalizar_ticket", "Fecha ticket.", bot_id);
+    dpp::slashcommand finalizar("finalizar_ticket", "Fecha o ticket atual.", bot_id);
     commands.push_back(finalizar);
-
-    dpp::slashcommand log("ver_log", "Vê logs antigos.", bot_id);
-    log.add_option(dpp::command_option(dpp::co_integer, "codigo", "ID.", true));
-    commands.push_back(log);
 }

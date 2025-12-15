@@ -7,6 +7,7 @@
 #include "EstoqueCommands.h"
 #include "TodoCommands.h"
 #include "RelatorioCommands.h" 
+#include "AIHandler.h"
 #include "Utils.h"
 #include <string>
 #include <vector>
@@ -17,7 +18,8 @@ CommandHandler::CommandHandler(
     ConfigManager& configMgr,
     ReportGenerator& rg,
     EventHandler& eventHandler,
-    TicketManager& tm
+    TicketManager& tm,
+    AIHandler& ai
 ) :
     bot_(bot),
     db_(db),
@@ -25,6 +27,7 @@ CommandHandler::CommandHandler(
     reportGenerator_(rg),
     eventHandler_(eventHandler),
     ticketManager_(tm),
+    aiHandler_(ai),
     visitasCmds_(bot, db_, configManager_.getConfig(), *this, eventHandler),
     leadCmds_(bot, db_, configManager_.getConfig(), *this, eventHandler),
     solicitacaoCmds_(bot, db_, configManager_.getConfig(), *this, eventHandler),
@@ -34,7 +37,8 @@ CommandHandler::CommandHandler(
     ticketCmds_(bot, tm, configManager_.getConfig(), *this),
     estoqueCmds_(bot, db_, configManager_.getConfig(), *this),
     todoCmds_(bot, configManager_.getConfig(), *this),
-    relatorioCmds_(bot, db_, configManager_.getConfig(), *this)
+    relatorioCmds_(bot, db_, configManager_.getConfig(), *this),
+    aiCmds_(bot, ai, db_, *this)
 {
 }
 
@@ -52,6 +56,8 @@ void CommandHandler::registerCommands() {
         EstoqueCommands::addCommandDefinitions(command_list, bot_.me.id);
         TodoCommands::addCommandDefinitions(command_list, bot_.me.id);
         RelatorioCommands::addCommandDefinitions(command_list, bot_.me.id);
+
+        AICommands::addCommandDefinitions(command_list, bot_.me.id);
 
         bot_.guild_bulk_command_create(command_list, config_.server_id);
         Utils::log_to_file("Comandos slash atualizados.");
@@ -95,43 +101,63 @@ void CommandHandler::handleInteraction(const dpp::slashcommand_t& event) {
         else if (command_name == "ver_log") { ticketCmds_.handle_ver_log(event); }
 
         else if (command_name == "estoque_criar") { estoqueCmds_.handle_estoque_criar(event); }
-        else if (command_name == "estoque_add") { estoqueCmds_.handle_estoque_add(event); }
-        else if (command_name == "estoque_remove") { estoqueCmds_.handle_estoque_remove(event); }
+        else if (command_name == "estoque_repor") { estoqueCmds_.handle_estoque_add(event); }
+        else if (command_name == "estoque_baixa") { estoqueCmds_.handle_estoque_remove(event); }
         else if (command_name == "estoque_lista") { estoqueCmds_.handle_estoque_lista(event); }
         else if (command_name == "estoque_delete") { estoqueCmds_.handle_estoque_delete(event); }
+        else if (command_name == "estoque_modificar") { estoqueCmds_.handle_estoque_modificar(event); }
 
         else if (command_name == "todo") { todoCmds_.handle_todo(event); }
-
         else if (command_name == "relatorio_do_dia") { relatorioCmds_.handle_relatorio_do_dia(event); }
+
+        else if (command_name == "ia") { aiCmds_.handle_ia_duvida(event); }
+        else if (command_name == "analise_leads") { aiCmds_.handle_analise_leads(event); }
+        else if (command_name == "melhor_funcionario") { aiCmds_.handle_melhor_funcionario(event); }
 
         else { event.reply(dpp::message("Comando desconhecido.").set_flags(dpp::m_ephemeral)); }
     }
-    catch (const std::exception& e) { Utils::log_to_file("ERRO CRITICO no handleInteraction: " + std::string(e.what())); }
-    catch (...) { Utils::log_to_file("ERRO CRITICO DESCONHECIDO no handleInteraction"); }
+    catch (const std::exception& e) { Utils::log_to_file("ERRO CRITICO handleInteraction: " + std::string(e.what())); }
+    catch (...) { Utils::log_to_file("ERRO CRITICO DESCONHECIDO handleInteraction"); }
 }
 
 void CommandHandler::replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds) {
     if (msg.flags & dpp::m_ephemeral) { event.reply(msg); return; }
-    dpp::slashcommand_t event_copy = event;
-    event.reply(msg, [this, event_copy, delay_seconds](const dpp::confirmation_callback_t& cb) {
+
+    int final_delay = (delay_seconds == 10) ? 60 : delay_seconds;
+
+    event.reply(msg, [this, event, final_delay](const dpp::confirmation_callback_t& cb) {
         if (!cb.is_error()) {
-            bot_.start_timer([this, event_copy](dpp::timer timer_handle) mutable {
-                event_copy.delete_original_response([](auto) {});
-                bot_.stop_timer(timer_handle);
-                }, delay_seconds);
+            event.get_original_response([this, final_delay, event](const dpp::confirmation_callback_t& msg_cb) {
+                if (!msg_cb.is_error()) {
+                    auto m = std::get<dpp::message>(msg_cb.value);
+                    bot_.message_add_reaction(m.id, m.channel_id, "🗑️");
+                    bot_.start_timer([this, event](dpp::timer timer_handle) mutable {
+                        event.delete_original_response([](auto) {});
+                        bot_.stop_timer(timer_handle);
+                        }, final_delay);
+                }
+                });
         }
         });
 }
 
 void CommandHandler::editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds) {
     if (msg.flags & dpp::m_ephemeral) { event.edit_original_response(msg); return; }
-    dpp::slashcommand_t event_copy = event;
-    event.edit_original_response(msg, [this, event_copy, delay_seconds](const dpp::confirmation_callback_t& cb) {
+
+    int final_delay = (delay_seconds == 10) ? 60 : delay_seconds;
+
+    event.edit_original_response(msg, [this, event, final_delay](const dpp::confirmation_callback_t& cb) {
         if (!cb.is_error()) {
-            bot_.start_timer([this, event_copy](dpp::timer timer_handle) mutable {
-                event_copy.delete_original_response([](auto) {});
-                bot_.stop_timer(timer_handle);
-                }, delay_seconds);
+            event.get_original_response([this, final_delay, event](const dpp::confirmation_callback_t& msg_cb) {
+                if (!msg_cb.is_error()) {
+                    auto m = std::get<dpp::message>(msg_cb.value);
+                    bot_.message_add_reaction(m.id, m.channel_id, "🗑️");
+                    bot_.start_timer([this, event](dpp::timer timer_handle) mutable {
+                        event.delete_original_response([](auto) {});
+                        bot_.stop_timer(timer_handle);
+                        }, final_delay);
+                }
+                });
         }
         });
 }

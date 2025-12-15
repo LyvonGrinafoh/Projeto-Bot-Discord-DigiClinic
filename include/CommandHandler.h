@@ -15,12 +15,14 @@
 #include "EstoqueCommands.h"
 #include "TodoCommands.h"
 #include "RelatorioCommands.h"
+#include "AICommands.h"
 
 class DatabaseManager;
 class ConfigManager;
 class ReportGenerator;
 class EventHandler;
 class TicketManager;
+class AIHandler;
 
 class CommandHandler {
 private:
@@ -30,6 +32,7 @@ private:
     ReportGenerator& reportGenerator_;
     EventHandler& eventHandler_;
     TicketManager& ticketManager_;
+    AIHandler& aiHandler_;
 
     VisitasCommands visitasCmds_;
     LeadCommands leadCmds_;
@@ -41,6 +44,7 @@ private:
     EstoqueCommands estoqueCmds_;
     TodoCommands todoCmds_;
     RelatorioCommands relatorioCmds_;
+    AICommands aiCmds_;
 
 public:
     CommandHandler(
@@ -49,12 +53,13 @@ public:
         ConfigManager& configMgr,
         ReportGenerator& rg,
         EventHandler& eventHandler,
-        TicketManager& tm
+        TicketManager& tm,
+        AIHandler& ai 
     );
 
     void registerCommands();
     void handleInteraction(const dpp::slashcommand_t& event);
 
-    void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
-    void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
+    void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 60);
+    void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 60);
 };

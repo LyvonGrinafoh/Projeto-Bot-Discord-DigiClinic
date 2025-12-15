@@ -5,14 +5,15 @@
 #include <chrono>
 #include <string>
 #include "DataTypes.h" 
+#include "Utils.h"
+#include <nlohmann/json.hpp>
 
-// Helper local para JSON
+using json = nlohmann::json;
+
 static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& target) {
     if (j.contains(key)) {
         const auto& value = j.at(key);
-        if (value.is_number()) {
-            value.get_to(target);
-        }
+        if (value.is_number()) { value.get_to(target); }
         else if (value.is_string()) {
             try { target = std::stoull(value.get<std::string>()); }
             catch (...) { target = 0; }
@@ -22,7 +23,9 @@ static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& 
     else { target = 0; }
 }
 
-TicketManager::TicketManager() : random_engine_(std::random_device{}()) {}
+TicketManager::TicketManager() : random_engine_(std::random_device{}()) {
+    loadTickets();
+}
 
 bool TicketManager::loadTickets() {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
@@ -35,7 +38,6 @@ bool TicketManager::loadTickets() {
         json j;
         file >> j;
         if (!j.is_null() && !j.empty()) {
-            // Manual parsing para garantir compatibilidade com DataTypes atualizado
             tickets_.clear();
             for (auto& element : j.items()) {
                 uint64_t id = std::stoull(element.key());
@@ -54,7 +56,7 @@ bool TicketManager::loadTickets() {
         }
     }
     catch (const std::exception& e) {
-        std::cerr << "Erro ao carregar tickets: " << e.what() << std::endl;
+        std::cerr << "Erro TicketManager: " << e.what() << std::endl;
         tickets_.clear();
         return false;
     }
@@ -78,13 +80,9 @@ bool TicketManager::saveTickets() {
             j_t["nome_ticket"] = t.nome_ticket;
             j_map[std::to_string(id)] = j_t;
         }
-
         file << j_map.dump(4);
     }
-    catch (const std::exception& e) {
-        Utils::log_to_file("ERRO TicketManager save: " + std::string(e.what()));
-        return false;
-    }
+    catch (...) { return false; }
     return true;
 }
 
@@ -108,9 +106,6 @@ Ticket TicketManager::createTicket(dpp::snowflake user_a, dpp::snowflake user_b,
 
     tickets_[new_ticket.ticket_id] = new_ticket;
     saveTickets();
-
-    ticket_logs_[channel_id] = "Log do Ticket #" + std::to_string(new_ticket.ticket_id) + "\nAssunto: " + assunto + "\nIniciado em: " + Utils::format_timestamp(std::time(nullptr)) + "\n";
-
     return new_ticket;
 }
 
@@ -128,9 +123,7 @@ bool TicketManager::arquivarTicket(uint64_t ticket_id, const std::string& log_fi
 std::optional<Ticket> TicketManager::findTicketByChannel(dpp::snowflake channel_id) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
     for (const auto& [id, ticket] : tickets_) {
-        if (ticket.channel_id == channel_id && ticket.status == "aberto") {
-            return ticket;
-        }
+        if (ticket.channel_id == channel_id && ticket.status == "aberto") return ticket;
     }
     return std::nullopt;
 }
@@ -144,21 +137,15 @@ std::optional<Ticket> TicketManager::findTicketById(uint64_t ticket_id) {
 
 void TicketManager::appendToLog(const dpp::message& msg) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
-    auto it = ticket_logs_.find(msg.channel_id);
-    if (it != ticket_logs_.end()) {
-        std::string log_line = "[" + Utils::format_timestamp(msg.sent) + "] " + msg.author.username + ": " + msg.content;
-        if (!msg.attachments.empty()) log_line += " [Arquivo Anexado]";
-        it->second += log_line + "\n";
-    }
+    if (ticket_logs_.find(msg.channel_id) == ticket_logs_.end()) ticket_logs_[msg.channel_id] = "";
+
+    std::string log_line = "[" + Utils::format_timestamp(msg.sent) + "] " + msg.author.username + ": " + msg.content + "\n";
+    ticket_logs_[msg.channel_id] += log_line;
 }
 
 std::string TicketManager::getAndRemoveLog(dpp::snowflake channel_id) {
     std::lock_guard<std::mutex> lock(ticket_mutex_);
-    std::string log;
-    auto it = ticket_logs_.find(channel_id);
-    if (it != ticket_logs_.end()) {
-        log = it->second;
-        ticket_logs_.erase(it);
-    }
+    std::string log = ticket_logs_[channel_id];
+    ticket_logs_.erase(channel_id);
     return log;
 }

@@ -83,6 +83,7 @@ public:
 
     // Relatorios Diarios
     const std::map<uint64_t, RelatorioDiario>& getRelatorios() const;
+    std::vector<RelatorioDiario> getTodosRelatorios();
     bool addOrUpdateRelatorio(const RelatorioDiario& r);
     bool saveRelatorios();
 };

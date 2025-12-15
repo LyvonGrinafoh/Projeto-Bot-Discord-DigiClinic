@@ -28,29 +28,20 @@ if(MSVC)
     add_compile_options(/utf-8 /EHsc)
 endif()
 
-# --- MUDANÇA AQUI: Adicionado resource.rc ---
-add_executable(${PROJECT_NAME}
-    src/main.cpp
-    src/BotCore.cpp
-    src/ConfigManager.cpp
-    src/DatabaseManager.cpp
-    src/CommandHandler.cpp
-    src/EventHandler.cpp
-    src/ReportGenerator.cpp
-    src/Utils.cpp
-    src/TicketManager.cpp
-    src/commands/VisitasCommands.cpp
-    src/commands/LeadCommands.cpp
-    src/commands/SolicitacaoCommands.cpp
-    src/commands/PlacaCommands.cpp
-    src/commands/CompraCommands.cpp
-    src/commands/GerarPlanilhaCommand.cpp
-    src/commands/TicketCommands.cpp
-    src/commands/EstoqueCommands.cpp
-    src/commands/TodoCommands.cpp
-    resource.rc
- "include/RelatorioCommands.h" "src/commands/RelatorioCommands.cpp")
-# --------------------------------------------
+# --- MUDANÇA: Usar GLOB para encontrar arquivos automaticamente ---
+# Isso pega TODOS os .cpp dentro de src/ e src/commands/
+file(GLOB SOURCES 
+    "src/*.cpp" 
+    "src/commands/*.cpp"
+)
+
+# Adiciona resource.rc se existir (se der erro, remova esta linha)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/resource.rc")
+    list(APPEND SOURCES resource.rc)
+endif()
+
+add_executable(${PROJECT_NAME} ${SOURCES} "include/httplib.h")
+# ---------------------------------------------------------------
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     dpp

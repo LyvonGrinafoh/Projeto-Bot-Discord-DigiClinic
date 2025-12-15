@@ -22,7 +22,7 @@ BOOL WINAPI BotCore::ConsoleHandler(DWORD fdwCtrlType) {
     case CTRL_LOGOFF_EVENT:
     case CTRL_SHUTDOWN_EVENT:
     {
-        std::string msg = "Tentativa de fechar console (sinal " + std::to_string(fdwCtrlType) + ") bloqueada. Use 'stop' para sair.";
+        std::string msg = "Tentativa de fechar console bloqueada. Use 'stop' para sair.";
         std::cout << "\n" << msg << "\n> " << std::flush;
         Utils::log_to_file(msg);
         return TRUE;
@@ -37,6 +37,7 @@ BotCore::BotCore() :
     databaseManager_(),
     ticketManager_(),
     bot_("", dpp::i_default_intents | dpp::i_guild_members | dpp::i_message_content),
+    aiHandler_(bot_),
     reportGenerator_(databaseManager_, bot_),
     running_(true)
 {
@@ -56,7 +57,16 @@ BotCore::BotCore() :
     if (!ticketManager_.loadTickets()) { Utils::log_to_file("AVISO: O arquivo de tickets pode estar corrompido."); }
 
     eventHandlerPtr_ = std::make_unique<EventHandler>(bot_, configManager_, ticketManager_, databaseManager_);
-    commandHandlerPtr_ = std::make_unique<CommandHandler>(bot_, databaseManager_, configManager_, reportGenerator_, *eventHandlerPtr_, ticketManager_);
+
+    commandHandlerPtr_ = std::make_unique<CommandHandler>(
+        bot_,
+        databaseManager_,
+        configManager_,
+        reportGenerator_,
+        *eventHandlerPtr_,
+        ticketManager_,
+        aiHandler_
+    );
 
     static_bot_ptr = &bot_;
     if (!SetConsoleCtrlHandler(BotCore::ConsoleHandler, TRUE)) {
@@ -103,23 +113,25 @@ void BotCore::setupEventHandlers() {
                 }
             }
 
-            std::string log_message = "`[" + Utils::format_timestamp(event.command.id.get_creation_time()) + "]` `[COMANDO]` `(#" + channel_name + ")` `" + author.username + "` `(" + std::to_string(author.id) + ")`: /" + event.command.get_command_name() + options_str + " (ID: `" + std::to_string(event.command.id) + "`)";
-            dpp::message msg_to_log(configManager_.getConfig().canal_logs, log_message);
+            std::string log_message = "`[" + Utils::format_timestamp(event.command.id.get_creation_time()) + "]` `[COMANDO]` `(#" + channel_name + ")` `" + author.username + "`: /" + event.command.get_command_name() + options_str;
 
             if (anexo_log) {
-                std::string log_filename = "log_" + std::to_string(event.command.id) + "_" + anexo_log->filename;
-                std::string log_path = "./uploads/" + log_filename;
+                dpp::snowflake log_channel_id = configManager_.getConfig().canal_logs;
+                std::string filename = anexo_log->filename;
 
-                Utils::BaixarAnexo(&bot_, anexo_log->url, log_path, [this, msg_to_log, log_path, log_filename](bool sucesso) mutable {
-                    if (sucesso) {
-                        try { msg_to_log.add_file(log_filename, dpp::utility::read_file(log_path)); }
-                        catch (...) {}
+                Utils::BaixarAnexo(&bot_, anexo_log->url, "", [this, log_channel_id, log_message, filename](bool sucesso, std::string conteudo) {
+                    dpp::message msg_to_log(log_channel_id, log_message);
+                    if (sucesso && !conteudo.empty()) {
+                        msg_to_log.add_file(filename, conteudo);
+                    }
+                    else {
+                        msg_to_log.content += " (Erro ao baixar anexo para log)";
                     }
                     bot_.message_create(msg_to_log);
                     });
             }
             else {
-                bot_.message_create(msg_to_log);
+                bot_.message_create(dpp::message(configManager_.getConfig().canal_logs, log_message));
             }
 
             commandHandlerPtr_->handleInteraction(event);

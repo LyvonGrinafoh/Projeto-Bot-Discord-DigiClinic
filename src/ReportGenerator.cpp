@@ -289,8 +289,8 @@ void ReportGenerator::gerarPlanilhaRelatoriosDiarios(const dpp::slashcommand_t& 
     lxw_workbook* workbook = workbook_new(filename.c_str());
     lxw_worksheet* worksheet = workbook_add_worksheet(workbook, "Relatorios");
 
-    worksheet_set_column(worksheet, 0, 0, 20, NULL); // Data
-    worksheet_set_column(worksheet, 1, 1, 100, NULL); // Conteúdo (Largo)
+    worksheet_set_column(worksheet, 0, 0, 20, NULL);
+    worksheet_set_column(worksheet, 1, 1, 100, NULL);
 
     lxw_format* header = workbook_add_format(workbook); format_set_bold(header);
     lxw_format* wrap = workbook_add_format(workbook); format_set_text_wrap(wrap);

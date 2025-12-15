@@ -6,6 +6,10 @@
 #include <optional>
 #include <algorithm>
 #include <string> 
+#include <vector>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 static void safe_get_snowflake(const json& j, const std::string& key, uint64_t& target) {
     if (j.contains(key)) {
@@ -329,11 +333,12 @@ void from_json(const json& j, RelatorioDiario& r) {
     if (j.contains("conteudo")) j.at("conteudo").get_to(r.conteudo); else r.conteudo = "";
 }
 
+// --- FUNCAO DE CARREGAMENTO INTELIGENTE (Detecta Array ou Objeto) ---
 template<typename T>
 bool DatabaseManager::loadFromFile(const std::string& filename, std::map<uint64_t, T>& database) {
     std::ifstream file(filename);
     if (!file.is_open()) {
-        Utils::log_to_file("AVISO: Arquivo " + filename + " nao encontrado. Iniciando com DB vazio para este tipo.");
+        Utils::log_to_file("AVISO: Arquivo " + filename + " nao encontrado. Iniciando vazio.");
         database.clear();
         return true;
     }
@@ -341,22 +346,31 @@ bool DatabaseManager::loadFromFile(const std::string& filename, std::map<uint64_
     try {
         json j;
         file >> j;
-        if (!j.is_null() && !j.empty()) {
-            database = j.get<std::map<uint64_t, T>>();
+        database.clear();
+
+        // CASO 1: Formato "Array de Arrays" (Seu leads.json: [[id, obj], [id, obj]])
+        if (j.is_array()) {
+            for (const auto& item : j) {
+                if (item.is_array() && item.size() >= 2) {
+                    uint64_t id = 0;
+                    if (item[0].is_number()) id = item[0].get<uint64_t>();
+                    else if (item[0].is_string()) id = std::stoull(item[0].get<std::string>());
+
+                    if (id != 0 && item[1].is_object()) {
+                        database[id] = item[1].get<T>();
+                    }
+                }
+            }
         }
-        else {
-            database.clear();
+        // CASO 2: Formato Padrão "Mapa/Objeto" (Outros arquivos: {"id": obj, "id": obj})
+        else if (j.is_object()) {
+            database = j.get<std::map<uint64_t, T>>();
         }
     }
     catch (const json::exception& e) {
-        std::string error_msg = "AVISO: Erro ao ler " + filename + ": " + e.what() + ". O arquivo pode estar corrompido. Renomeando para backup e continuando com DB vazio.";
+        std::string error_msg = "AVISO: Erro ao ler " + filename + ": " + e.what();
         std::cerr << error_msg << std::endl;
         Utils::log_to_file(error_msg);
-        file.close();
-        std::string backup_name = filename + ".bak";
-        std::remove(backup_name.c_str());
-        std::rename(filename.c_str(), backup_name.c_str());
-        database.clear();
         return false;
     }
     return true;
@@ -387,6 +401,7 @@ bool DatabaseManager::saveToFile(const std::string& filename, const std::map<uin
     return true;
 }
 
+// --- CARREGAMENTO INICIAL ---
 bool DatabaseManager::loadAll() {
     bool success = true;
     success &= loadFromFile(DATABASE_FILE, solicitacoes_);
@@ -411,6 +426,7 @@ bool DatabaseManager::saveAll() {
     return success;
 }
 
+// --- GETTERS E SETTERS ---
 const std::map<uint64_t, Solicitacao>& DatabaseManager::getSolicitacoes() const { return solicitacoes_; }
 std::optional<Solicitacao> DatabaseManager::getSolicitacao(uint64_t id) const {
     auto it = solicitacoes_.find(id);
@@ -586,6 +602,14 @@ bool DatabaseManager::removeEstoqueItem(uint64_t id) {
 bool DatabaseManager::saveEstoque() { return saveToFile(ESTOQUE_DATABASE_FILE, estoque_); }
 
 const std::map<uint64_t, RelatorioDiario>& DatabaseManager::getRelatorios() const { return relatorios_; }
+
+std::vector<RelatorioDiario> DatabaseManager::getTodosRelatorios() {
+    std::vector<RelatorioDiario> lista;
+    for (const auto& [id, relatorio] : relatorios_) {
+        lista.push_back(relatorio);
+    }
+    return lista;
+}
 
 bool DatabaseManager::addOrUpdateRelatorio(const RelatorioDiario& r) {
     relatorios_[r.id] = r;

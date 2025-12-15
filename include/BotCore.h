@@ -10,6 +10,7 @@
 #include "EventHandler.h"
 #include "ReportGenerator.h"
 #include "TicketManager.h"
+#include "AIHandler.h"
 
 class BotCore {
 private:
@@ -17,6 +18,7 @@ private:
     DatabaseManager databaseManager_;
     TicketManager ticketManager_;
     dpp::cluster bot_;
+    AIHandler aiHandler_;
     ReportGenerator reportGenerator_;
     std::unique_ptr<EventHandler> eventHandlerPtr_;
     std::unique_ptr<CommandHandler> commandHandlerPtr_;

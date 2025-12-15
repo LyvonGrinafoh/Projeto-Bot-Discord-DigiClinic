@@ -27,23 +27,26 @@ void PlacaCommands::handle_placa(const dpp::slashcommand_t& event) {
     nova_placa.solicitado_por_nome = solicitante.username;
     nova_placa.status = "pendente";
 
-    auto finish = [this, event, nova_placa](const std::string& filename) mutable {
+    auto finish = [this, event, nova_placa](const std::string& filename, const std::string& file_content) mutable {
         if (db_.addOrUpdatePlaca(nova_placa)) {
             dpp::message msg(config_.canal_solicitacao_placas, "");
-            dpp::embed embed = dpp::embed().set_title("📢 Nova Placa").add_field("Dr(a)", nova_placa.doutor, true).add_field("Tipo", nova_placa.tipo_placa, true).set_footer(dpp::embed_footer().set_text("Cód: " + std::to_string(nova_placa.id)));
 
-            if (!nova_placa.imagem_referencia_path.empty()) {
-                try {
-                    msg.add_file(filename, dpp::utility::read_file(nova_placa.imagem_referencia_path));
-                    embed.set_image("attachment://" + filename);
-                }
-                catch (...) {}
+            dpp::embed embed = Utils::criarEmbedPadrao("📢 Nova Placa Solicitada", "", dpp::colors::yellow);
+            embed.add_field("Dr(a)", nova_placa.doutor, true)
+                .add_field("Tipo", nova_placa.tipo_placa, true)
+                .add_field("Solicitante", nova_placa.solicitado_por_nome, true)
+                .set_footer(dpp::embed_footer().set_text("Cód: " + std::to_string(nova_placa.id)));
+
+            if (!filename.empty() && !file_content.empty()) {
+                msg.add_file(filename, file_content);
+                embed.set_image("attachment://" + filename);
             }
             msg.add_embed(embed);
             bot_.message_create(msg);
-            event.edit_response("Solicitação enviada!");
+
+            event.edit_response("✅ Solicitação enviada com sucesso!");
         }
-        else { event.edit_response("Erro ao salvar."); }
+        else { event.edit_response("❌ Erro ao salvar."); }
         };
 
     auto param_anexo = event.get_parameter("imagem_referencia");
@@ -52,12 +55,15 @@ void PlacaCommands::handle_placa(const dpp::slashcommand_t& event) {
         std::string filename = "ref_" + std::to_string(nova_placa.id) + "_" + anexo.filename;
         std::string path = "./uploads/" + filename;
 
-        Utils::BaixarAnexo(&bot_, anexo.url, path, [this, event, nova_placa, path, filename, finish](bool ok) mutable {
-            if (ok) { nova_placa.imagem_referencia_path = path; finish(filename); }
-            else { event.edit_response("Erro ao baixar imagem."); }
+        Utils::BaixarAnexo(&bot_, anexo.url, path, [this, event, nova_placa, path, filename, finish](bool ok, std::string content) mutable {
+            if (ok) {
+                nova_placa.imagem_referencia_path = path;
+                finish(filename, content);
+            }
+            else { event.edit_response("❌ Erro ao baixar imagem."); }
             });
     }
-    else { finish(""); }
+    else { finish("", ""); }
 }
 
 void PlacaCommands::handle_finalizar_placa(const dpp::slashcommand_t& event) {
@@ -72,7 +78,7 @@ void PlacaCommands::handle_finalizar_placa(const dpp::slashcommand_t& event) {
     std::string filename = "arte_" + std::to_string(p.id) + "_" + anexo.filename;
     std::string path = "./uploads/" + filename;
 
-    Utils::BaixarAnexo(&bot_, anexo.url, path, [this, event, p, path, filename](bool ok) mutable {
+    Utils::BaixarAnexo(&bot_, anexo.url, path, [this, event, p, path, filename](bool ok, std::string content) mutable {
         if (!ok) { event.edit_response("Erro ao baixar arte."); return; }
 
         p.status = "finalizada";
@@ -80,13 +86,13 @@ void PlacaCommands::handle_finalizar_placa(const dpp::slashcommand_t& event) {
         db_.addOrUpdatePlaca(p);
 
         dpp::message msg(config_.canal_placas_finalizadas, "");
-        dpp::embed embed = dpp::embed().set_color(dpp::colors::green).set_title("✅ Placa Finalizada").add_field("Dr(a)", p.doutor, true);
+        dpp::embed embed = Utils::criarEmbedPadrao("✅ Placa Finalizada", "", dpp::colors::green);
+        embed.add_field("Dr(a)", p.doutor, true);
 
-        try {
-            msg.add_file(filename, dpp::utility::read_file(path));
+        if (!content.empty()) {
+            msg.add_file(filename, content);
             embed.set_image("attachment://" + filename);
         }
-        catch (...) {}
 
         msg.add_embed(embed);
         bot_.message_create(msg);
@@ -96,12 +102,47 @@ void PlacaCommands::handle_finalizar_placa(const dpp::slashcommand_t& event) {
 
 void PlacaCommands::handle_lista_placas(const dpp::slashcommand_t& event) {
     const auto& map = db_.getPlacas();
-    std::string desc;
+    std::vector<PaginatedItem> items;
     for (const auto& [id, p] : map) {
-        if (p.status == "pendente") desc += "`" + std::to_string(id) + "` - " + p.doutor + " (" + p.tipo_placa + ")\n";
+        if (p.status == "pendente") items.push_back(p);
     }
-    if (desc.empty()) desc = "Nenhuma pendente.";
-    event.reply(dpp::embed().set_title("Placas Pendentes").set_description(desc));
+
+    if (items.empty()) { event.reply(dpp::message("Nenhuma placa pendente.").set_flags(dpp::m_ephemeral)); return; }
+
+    PaginationState state;
+    state.channel_id = event.command.channel_id;
+    state.items = std::move(items);
+    state.originalUserID = event.command.get_issuing_user().id;
+    state.listType = "placas";
+    state.currentPage = 1;
+    state.itemsPerPage = 5;
+
+    dpp::embed firstPage = Utils::generatePageEmbed(state);
+
+    event.reply(dpp::message(event.command.channel_id, firstPage), [this, state](const dpp::confirmation_callback_t& cb) {
+        if (!cb.is_error()) {
+        }
+        });
+
+    event.get_original_response([this, state](const auto& msg_cb) {
+        if (!msg_cb.is_error()) {
+            auto m = std::get<dpp::message>(msg_cb.value);
+            eventHandler_.addPaginationState(m.id, state);
+
+            bot_.message_add_reaction(m.id, m.channel_id, "🗑️", [this, m](auto cb) {
+                if (!cb.is_error()) {
+                    bot_.message_add_reaction(m.id, m.channel_id, "◀️", [this, m](auto cb2) {
+                        if (!cb2.is_error()) bot_.message_add_reaction(m.id, m.channel_id, "▶️");
+                        });
+                }
+                });
+
+            bot_.start_timer([this, m](dpp::timer t) {
+                bot_.message_delete(m.id, m.channel_id);
+                bot_.stop_timer(t);
+                }, 60);
+        }
+        });
 }
 
 void PlacaCommands::addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id) {

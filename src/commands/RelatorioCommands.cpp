@@ -10,7 +10,6 @@ RelatorioCommands::RelatorioCommands(dpp::cluster& bot, DatabaseManager& db, con
 }
 
 void RelatorioCommands::handle_relatorio_do_dia(const dpp::slashcommand_t& event) {
-    // Abre um formulário (Modal) para o funcionário escrever
     dpp::interaction_modal_response modal("modal_relatorio_dia", "Relatório do Dia");
 
     modal.add_component(

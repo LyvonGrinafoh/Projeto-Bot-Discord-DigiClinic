@@ -1,10 +1,34 @@
 ﻿#include <iostream>
 #include <exception>
 #include <memory>
+#include <filesystem>
 #include "BotCore.h"
 #include "Utils.h"
 
+
+namespace fs = std::filesystem;
+
 int main() {
+
+    std::cout << "\n=== INICIANDO DIAGNOSTICO DE DIRETORIO ===" << std::endl;
+
+    fs::path diretorioAtual = fs::current_path();
+    std::cout << "Diretorio de Execucao (CWD): " << diretorioAtual << std::endl;
+
+    std::string arquivoTeste = "estoque.json";
+
+    if (fs::exists(arquivoTeste)) {
+        std::cout << "[SUCESSO] O arquivo '" << arquivoTeste << "' foi ENCONTRADO!" << std::endl;
+        std::cout << "Tamanho do arquivo: " << fs::file_size(arquivoTeste) << " bytes." << std::endl;
+    }
+    else {
+        std::cout << "[ERRO CRITICO] O arquivo '" << arquivoTeste << "' NAO FOI ENCONTRADO neste diretorio." << std::endl;
+        std::cout << "O bot vai procurar em: " << diretorioAtual / arquivoTeste << std::endl;
+        std::cout << "DICA: Verifique se o arquivo nao esta dentro de uma subpasta 'database' ou 'Debug'." << std::endl;
+    }
+    std::cout << "==========================================\n" << std::endl;
+    // -------------------------------------
+
     try {
         auto botInstance = std::make_unique<BotCore>();
 
