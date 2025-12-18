@@ -17,9 +17,10 @@ private:
 public:
     AICommands(dpp::cluster& bot, AIHandler& ai, DatabaseManager& db, CommandHandler& handler);
 
-    void handle_ia_duvida(const dpp::slashcommand_t& event);
     void handle_analise_leads(const dpp::slashcommand_t& event);
     void handle_melhor_funcionario(const dpp::slashcommand_t& event);
+
+    void handle_ensinar(const dpp::slashcommand_t& event);
 
     static void addCommandDefinitions(std::vector<dpp::slashcommand>& commands, dpp::snowflake bot_id);
 };

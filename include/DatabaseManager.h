@@ -16,17 +16,27 @@ private:
     std::map<uint64_t, EstoqueItem> estoque_;
     std::map<uint64_t, RelatorioDiario> relatorios_;
 
+    // Conhecimento dinâmico
+    std::vector<std::string> conhecimento_bot_;
+
     template<typename T>
     bool loadFromFile(const std::string& filename, std::map<uint64_t, T>& database);
 
     template<typename T>
     bool saveToFile(const std::string& filename, const std::map<uint64_t, T>& database);
 
+    bool loadConhecimento();
+    bool saveConhecimento();
+
 public:
     DatabaseManager() = default;
 
     bool loadAll();
     bool saveAll();
+
+    // Gestão do Conhecimento (Manual Dinâmico)
+    std::string getManualCompleto() const;
+    bool adicionarConhecimento(const std::string& info);
 
     // Solicitacao
     const std::map<uint64_t, Solicitacao>& getSolicitacoes() const;
@@ -81,7 +91,7 @@ public:
     bool removeEstoqueItem(uint64_t id);
     bool saveEstoque();
 
-    // Relatorios Diarios
+    // Relatorios
     const std::map<uint64_t, RelatorioDiario>& getRelatorios() const;
     std::vector<RelatorioDiario> getTodosRelatorios();
     bool addOrUpdateRelatorio(const RelatorioDiario& r);

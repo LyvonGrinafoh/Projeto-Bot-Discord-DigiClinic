@@ -12,8 +12,10 @@
 #include <string>
 #include <variant>
 
+// Inicialização do ponteiro estático
 dpp::cluster* BotCore::static_bot_ptr = nullptr;
 
+// Handler para impedir fechamento acidental do console
 BOOL WINAPI BotCore::ConsoleHandler(DWORD fdwCtrlType) {
     switch (fdwCtrlType) {
     case CTRL_C_EVENT:
@@ -41,6 +43,7 @@ BotCore::BotCore() :
     reportGenerator_(databaseManager_, bot_),
     running_(true)
 {
+    // Configura ícone da janela do console (opcional, visual)
     HWND consoleWindow = GetConsoleWindow();
     if (consoleWindow != NULL) {
         HINSTANCE hInstance = GetModuleHandle(NULL);
@@ -51,12 +54,32 @@ BotCore::BotCore() :
     }
 
     Utils::log_to_file("--- Inicializando BotCore ---");
-    if (!configManager_.load()) { throw std::runtime_error("Falha ao carregar configuracao. Encerrando."); }
-    bot_.token = configManager_.getConfig().token;
-    if (!databaseManager_.loadAll()) { Utils::log_to_file("AVISO: Um ou mais arquivos de banco de dados podem estar corrompidos ou ausentes."); }
-    if (!ticketManager_.loadTickets()) { Utils::log_to_file("AVISO: O arquivo de tickets pode estar corrompido."); }
 
-    eventHandlerPtr_ = std::make_unique<EventHandler>(bot_, configManager_, ticketManager_, databaseManager_);
+    // 1. Carregar Configuração
+    if (!configManager_.load()) {
+        throw std::runtime_error("Falha ao carregar configuracao. Encerrando.");
+    }
+    bot_.token = configManager_.getConfig().token;
+
+    // 2. Carregar Banco de Dados e Conhecimento (Cérebro)
+    if (!databaseManager_.loadAll()) {
+        Utils::log_to_file("AVISO: Database incompleto ou iniciado do zero.");
+    }
+
+    // 3. Carregar Tickets
+    if (!ticketManager_.loadTickets()) {
+        Utils::log_to_file("AVISO: Tickets corrompido ou vazio.");
+    }
+
+    // 4. Inicializar Handlers
+    // ATENÇÃO: Passando aiHandler_ para o EventHandler (para o bot ouvir menções)
+    eventHandlerPtr_ = std::make_unique<EventHandler>(
+        bot_,
+        configManager_,
+        ticketManager_,
+        databaseManager_,
+        aiHandler_
+    );
 
     commandHandlerPtr_ = std::make_unique<CommandHandler>(
         bot_,
@@ -68,13 +91,15 @@ BotCore::BotCore() :
         aiHandler_
     );
 
+    // Configura Ctrl+C handler
     static_bot_ptr = &bot_;
     if (!SetConsoleCtrlHandler(BotCore::ConsoleHandler, TRUE)) {
-        throw std::runtime_error("Falha ao registrar SetConsoleCtrlHandler");
+        throw std::runtime_error("Falha ao registrar ConsoleHandler");
     }
 
     std::signal(SIGINT, BotCore::signalHandler);
     std::signal(SIGTERM, BotCore::signalHandler);
+
     setupEventHandlers();
     setupReminderTimer();
 }
@@ -89,20 +114,26 @@ BotCore::~BotCore() {
 
 void BotCore::setupEventHandlers() {
     bot_.on_log(dpp::utility::cout_logger());
+
     bot_.on_ready([this](const dpp::ready_t& event) {
         Utils::log_to_file("Bot conectado como: " + bot_.me.username);
-        if (commandHandlerPtr_) commandHandlerPtr_->registerCommands();
+
+        if (commandHandlerPtr_) {
+            commandHandlerPtr_->registerCommands();
+        }
         });
 
     bot_.on_slashcommand([this](const dpp::slashcommand_t& event) {
         if (!commandHandlerPtr_) return;
+
         try {
             dpp::user author = event.command.get_issuing_user();
             dpp::channel* c = dpp::find_channel(event.command.channel_id);
             std::string channel_name = c ? c->name : std::to_string(event.command.channel_id);
-            dpp::command_interaction cmd_data = std::get<dpp::command_interaction>(event.command.data);
 
+            dpp::command_interaction cmd_data = std::get<dpp::command_interaction>(event.command.data);
             std::string options_str;
+
             const dpp::attachment* anexo_log = nullptr;
 
             for (const auto& opt : cmd_data.options) {
@@ -118,14 +149,10 @@ void BotCore::setupEventHandlers() {
             if (anexo_log) {
                 dpp::snowflake log_channel_id = configManager_.getConfig().canal_logs;
                 std::string filename = anexo_log->filename;
-
                 Utils::BaixarAnexo(&bot_, anexo_log->url, "", [this, log_channel_id, log_message, filename](bool sucesso, std::string conteudo) {
                     dpp::message msg_to_log(log_channel_id, log_message);
                     if (sucesso && !conteudo.empty()) {
                         msg_to_log.add_file(filename, conteudo);
-                    }
-                    else {
-                        msg_to_log.content += " (Erro ao baixar anexo para log)";
                     }
                     bot_.message_create(msg_to_log);
                     });
@@ -136,26 +163,43 @@ void BotCore::setupEventHandlers() {
 
             commandHandlerPtr_->handleInteraction(event);
         }
-        catch (const dpp::exception& e) { Utils::log_to_file("ERRO DPP: " + std::string(e.what())); }
-        catch (const std::exception& e) { Utils::log_to_file("ERRO STD: " + std::string(e.what())); }
-        catch (...) { Utils::log_to_file("ERRO DESCONHECIDO"); }
+        catch (const std::exception& e) {
+            Utils::log_to_file("ERRO DESCONHECIDO NO HANDLER: " + std::string(e.what()));
+        }
+        catch (...) {
+            Utils::log_to_file("ERRO DESCONHECIDO NO HANDLER");
+        }
         });
 
-    bot_.on_message_create([this](const dpp::message_create_t& event) { if (eventHandlerPtr_) eventHandlerPtr_->onMessageCreate(event); });
-    bot_.on_message_update([this](const dpp::message_update_t& event) { if (eventHandlerPtr_) eventHandlerPtr_->onMessageUpdate(event); });
-    bot_.on_message_delete([this](const dpp::message_delete_t& event) { if (eventHandlerPtr_) eventHandlerPtr_->onMessageDelete(event); });
-    bot_.on_message_reaction_add([this](const dpp::message_reaction_add_t& event) { if (eventHandlerPtr_) eventHandlerPtr_->onMessageReactionAdd(event); });
+    bot_.on_message_create([this](const dpp::message_create_t& event) {
+        if (eventHandlerPtr_) eventHandlerPtr_->onMessageCreate(event);
+        });
+
+    bot_.on_message_update([this](const dpp::message_update_t& event) {
+        if (eventHandlerPtr_) eventHandlerPtr_->onMessageUpdate(event);
+        });
+
+    bot_.on_message_delete([this](const dpp::message_delete_t& event) {
+        if (eventHandlerPtr_) eventHandlerPtr_->onMessageDelete(event);
+        });
+
+    bot_.on_message_reaction_add([this](const dpp::message_reaction_add_t& event) {
+        if (eventHandlerPtr_) eventHandlerPtr_->onMessageReactionAdd(event);
+        });
 
     bot_.on_button_click([this](const dpp::button_click_t& event) {
         if (eventHandlerPtr_) eventHandlerPtr_->onButtonClickListener(event);
         });
+
     bot_.on_form_submit([this](const dpp::form_submit_t& event) {
         if (eventHandlerPtr_) eventHandlerPtr_->onFormSubmitListener(event);
         });
 }
 
 void BotCore::setupReminderTimer() {
-    bot_.start_timer([this](dpp::timer t) { enviarLembretes(); }, 3600);
+    bot_.start_timer([this](dpp::timer t) {
+        enviarLembretes();
+        }, 3600);
 }
 
 void BotCore::enviarLembretes() {
@@ -163,43 +207,22 @@ void BotCore::enviarLembretes() {
     std::time_t now_brt_t = now_utc - 10800;
     std::tm* brt_tm = std::gmtime(&now_brt_t);
 
-    if (!brt_tm) return;
-    if (brt_tm->tm_hour != 9) return;
-
-    Utils::log_to_file("Executando checagem diária de lembretes (09h)...");
-
-    std::map<dpp::snowflake, std::vector<Solicitacao>> avisos_por_usuario;
-    const auto& todas_solicitacoes = databaseManager_.getSolicitacoes();
-
-    for (const auto& [id, sol] : todas_solicitacoes) {
-        if (sol.status == "pendente" && Utils::isDateTomorrow(sol.prazo)) {
-            avisos_por_usuario[sol.id_usuario_responsavel].push_back(sol);
-        }
+    if (!brt_tm || brt_tm->tm_hour != 9) {
+        return;
     }
 
-    for (const auto& [id_usuario, lista] : avisos_por_usuario) {
-        if (id_usuario == 0) continue;
-        if (!lista.empty()) {
-            std::string msg_dm = "⏰ **Atenção!** Você tem itens vencendo **AMANHÃ**:\n\n";
-            for (const auto& s : lista) {
-                std::string tipo = (s.tipo == PEDIDO) ? "Pedido" : (s.tipo == DEMANDA ? "Demanda" : "Lembrete");
-                msg_dm += "🔸 [" + tipo + "] `" + std::to_string(s.id) + "`: " + s.texto + "\n";
-            }
-            msg_dm += "\nVerifique suas pendências no servidor!";
-            bot_.direct_message_create(id_usuario, dpp::message(msg_dm));
-        }
-    }
-
-    std::string msg_tatuape;
-    std::string msg_campo_belo;
-    const auto& todas_visitas = databaseManager_.getVisitas();
+    Utils::log_to_file("Verificando visitas para amanha...");
     const BotConfig& cfg = configManager_.getConfig();
+    const auto& visitas = databaseManager_.getVisitas();
 
-    for (const auto& [id, vis] : todas_visitas) {
-        if (vis.status == "agendada" && Utils::isDateTomorrow(vis.data)) {
-            std::string linha = "• **" + vis.horario + "** - Dr(a). " + vis.doutor + " (Cód: `" + std::to_string(vis.id) + "`)\n";
-            if (vis.unidade.find("Tatuapé") != std::string::npos) msg_tatuape += linha;
-            else if (vis.unidade.find("Campo Belo") != std::string::npos) msg_campo_belo += linha;
+    std::string msg_tatuape = "";
+    std::string msg_campo_belo = "";
+
+    for (const auto& [id, v] : visitas) {
+        if (v.status == "agendada" && Utils::isDateTomorrow(v.data)) {
+            std::string linha = "- " + v.horario + " | Dr(a) " + v.doutor + " (Resp: " + v.quem_marcou_nome + ")\n";
+            if (v.unidade == "Tatuapé") msg_tatuape += linha;
+            else if (v.unidade == "Campo Belo") msg_campo_belo += linha;
         }
     }
 
@@ -220,8 +243,11 @@ void BotCore::enviarLembretes() {
 
 void BotCore::run() {
     Utils::log_to_file("--- Iniciando D++ cluster ---");
+
     inputThread_ = std::thread(BotCore::consoleInputLoop, &bot_, std::ref(running_));
+
     bot_.start(dpp::st_wait);
+
     running_ = false;
     if (inputThread_.joinable()) {
         inputThread_.detach();
@@ -238,16 +264,11 @@ void BotCore::consoleInputLoop(dpp::cluster* bot_cluster_ptr, std::atomic<bool>&
     std::string line;
     while (running_flag) {
         std::cout << "> " << std::flush;
-        if (!std::getline(std::cin, line)) {
+        if (!std::getline(std::cin, line) || line == "stop") {
             if (running_flag) {
                 if (bot_cluster_ptr) bot_cluster_ptr->shutdown();
                 running_flag = false;
             }
-            break;
-        }
-        if (line == "stop") {
-            if (bot_cluster_ptr) bot_cluster_ptr->shutdown();
-            running_flag = false;
             break;
         }
     }

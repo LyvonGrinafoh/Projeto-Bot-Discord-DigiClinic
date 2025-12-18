@@ -54,12 +54,11 @@ public:
         ReportGenerator& rg,
         EventHandler& eventHandler,
         TicketManager& tm,
-        AIHandler& ai 
+        AIHandler& ai
     );
 
     void registerCommands();
     void handleInteraction(const dpp::slashcommand_t& event);
-
-    void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 60);
-    void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 60);
+    void replyAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
+    void editAndDelete(const dpp::slashcommand_t& event, const dpp::message& msg, int delay_seconds = 10);
 };

@@ -48,14 +48,11 @@ bool Utils::validarFormatoData(const std::string& data) {
 bool Utils::isDateTomorrow(const std::string& dataStr) {
     time_t target = stringToTime(dataStr);
     if (target == -1) return false;
-
     time_t now = time(nullptr);
     tm* tm_now = localtime(&now);
     tm_now->tm_mday += 1;
     mktime(tm_now);
-
     tm* tm_target = localtime(&target);
-
     return (tm_now->tm_year == tm_target->tm_year &&
         tm_now->tm_mon == tm_target->tm_mon &&
         tm_now->tm_mday == tm_target->tm_mday);
@@ -73,15 +70,12 @@ int Utils::compararDatas(const std::string& data1, const std::string& data2) {
 bool Utils::dataPassada(const std::string& data) {
     time_t target = stringToTime(data);
     if (target == -1) return false;
-
     time_t now = time(nullptr);
     tm* tm_now = localtime(&now);
     tm_now->tm_hour = 0; tm_now->tm_min = 0; tm_now->tm_sec = 0;
     time_t midnight_now = mktime(tm_now);
-
     return target < midnight_now;
 }
-// ----------------------------------------
 
 void Utils::log_to_file(const std::string& message) {
     std::ofstream log_file(LOG_FILE, std::ios_base::app);
@@ -105,44 +99,35 @@ void Utils::BaixarAnexo(dpp::cluster* bot, const std::string& url, const std::st
             file.close();
             callback(true, cc.body);
         }
-        else {
-            callback(false, "");
-        }
+        else { callback(false, ""); }
         });
 }
 
 dpp::embed Utils::generatePageEmbed(const PaginationState& state) {
     dpp::embed embed = dpp::embed().set_color(dpp::colors::blue);
     std::string title = "Lista de Itens";
-
     if (state.listType == "demandas") title = "📋 Demandas Pendentes";
     else if (state.listType == "leads") title = "📇 Lista de Leads";
     else if (state.listType == "visitas") title = "📅 Visitas Agendadas";
     else if (state.listType == "placas") title = "🚪 Placas Pendentes";
     else if (state.listType == "estoque") title = "📦 Estoque";
-
     embed.set_title(title);
-
     int start = (state.currentPage - 1) * state.itemsPerPage;
     int end = std::min((int)state.items.size(), start + state.itemsPerPage);
     int totalPages = (state.items.size() + state.itemsPerPage - 1) / state.itemsPerPage;
     if (totalPages < 1) totalPages = 1;
-
     std::stringstream desc;
-    if (state.items.empty()) {
-        desc << "Nenhum item encontrado.";
-    }
+    if (state.items.empty()) { desc << "Nenhum item encontrado."; }
     else {
         for (int i = start; i < end; ++i) {
             const auto& item_variant = state.items[i];
-
             if (std::holds_alternative<Solicitacao>(item_variant)) {
                 const auto& s = std::get<Solicitacao>(item_variant);
                 desc << "**#" << s.id << "** | " << s.texto << " (Resp: " << s.nome_usuario_responsavel << ")\n";
             }
             else if (std::holds_alternative<Lead>(item_variant)) {
                 const auto& l = std::get<Lead>(item_variant);
-                desc << "**" << l.nome << "** (" << l.origem << ") - Status: " << l.status_conversa << "\n";
+                desc << "**" << l.nome << "** | 🗓️ " << l.data_contato << " (" << l.origem << ") - Status: " << l.status_conversa << "\n";
             }
             else if (std::holds_alternative<Visita>(item_variant)) {
                 const auto& v = std::get<Visita>(item_variant);
@@ -163,7 +148,6 @@ dpp::embed Utils::generatePageEmbed(const PaginationState& state) {
             }
         }
     }
-
     embed.set_description(desc.str());
     embed.set_footer(dpp::embed_footer().set_text("Página " + std::to_string(state.currentPage) + " de " + std::to_string(totalPages)));
     return embed;

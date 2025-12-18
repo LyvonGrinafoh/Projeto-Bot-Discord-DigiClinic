@@ -13,6 +13,7 @@ inline const std::string TICKETS_DATABASE_FILE = "tickets.json";
 inline const std::string PLACAS_DATABASE_FILE = "placas.json";
 inline const std::string ESTOQUE_DATABASE_FILE = "estoque.json";
 inline const std::string RELATORIOS_DATABASE_FILE = "relatorios.json";
+inline const std::string CEREBRO_DATABASE_FILE = "cerebro.json";
 inline const std::string LOG_FILE = "bot_log.txt";
 
 class Utils {
